@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bebidas-25-de-mayo
+    name: bebidas25demayo
     env: python
     region: ohio
     plan: free

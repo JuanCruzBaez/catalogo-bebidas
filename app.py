@@ -168,7 +168,7 @@ def api_public_info():
         "delivery_info": "Envíos a domicilio por Lanús",
         "wholesale_threshold": 100000,
         "wholesale_condition": "Precios mayoristas a partir de los $100.000",
-        "website_url": "https://bebidas25demayo.com"
+        "website_url": "https://bebidas25demayo.onrender.com"
     })
 
 # ----------------- API COMBOS (GESTIÓN ADMIN) -----------------

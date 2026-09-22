@@ -1434,13 +1434,13 @@ def apply_sync_payload(payload):
     categories = payload.get('categories', [])
     for c in categories:
         cursor.execute("""
-            INSERT INTO categories (id, name, order_index, is_active)
+            INSERT INTO categories (id, name, order_index, icon)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 order_index = excluded.order_index,
-                is_active = excluded.is_active
-        """, (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('is_active', 1)))
+                icon = excluded.icon
+        """, (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('icon', '')))
         
     # 2. Sincronizar Productos (Precios, Stock, Costos)
     products = payload.get('products', [])

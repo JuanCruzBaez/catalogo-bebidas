@@ -740,8 +740,11 @@ def api_sync_push():
     payload = request.get_json()
     if not payload:
         return jsonify({"error": "Payload JSON requerido"}), 400
-    res = database.apply_sync_payload(payload)
-    return jsonify(res)
+    try:
+        res = database.apply_sync_payload(payload)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"error": f"Error al aplicar sincronización: {str(e)}"}), 500
 
 @app.route('/api/sync/pull', methods=['GET'])
 def api_sync_pull():

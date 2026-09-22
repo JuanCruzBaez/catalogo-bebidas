@@ -557,19 +557,26 @@ def get_product(product_id):
 def create_product(data):
     conn = get_db_connection()
     cursor = conn.cursor()
+    p_min = float(data.get("price_minorista", 0) or 0)
+    cost_val = float(data.get("cost_price", 0) or 0)
+    margin_val = float(data.get("profit_margin_target", 0) or 0)
+    if margin_val == 0 and cost_val > 0 and p_min > 0:
+        margin_val = round(((p_min - cost_val) / p_min) * 100, 1)
+
     cursor.execute("""
         INSERT INTO products (
             category_id, name, presentation, price_minorista, price_mayorista,
-            cost_price, supplier, image_path, order_index, stock, is_active, is_featured
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cost_price, supplier, profit_margin_target, image_path, order_index, stock, is_active, is_featured
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         data.get("category_id"),
         data.get("name"),
         data.get("presentation", ""),
-        float(data.get("price_minorista", 0) or 0),
+        p_min,
         float(data.get("price_mayorista", 0) or 0),
-        float(data.get("cost_price", 0) or 0),
+        cost_val,
         str(data.get("supplier", "") or "").strip(),
+        margin_val,
         data.get("image_path", ""),
         int(data.get("order_index", 0) or 0),
         int(data.get("stock", 10) if data.get("stock") is not None else 10),
@@ -588,6 +595,11 @@ def update_product(product_id, data):
     stock_val = int(data.get("stock", 10) if data.get("stock") is not None else 10)
     cost_val = float(data.get("cost_price", 0) or 0)
     supplier_val = str(data.get("supplier", "") or "").strip()
+    p_min = float(data.get("price_minorista", 0) or 0)
+    p_may = float(data.get("price_mayorista", 0) or 0)
+    margin_val = float(data.get("profit_margin_target", 0) or 0)
+    if margin_val == 0 and cost_val > 0 and p_min > 0:
+        margin_val = round(((p_min - cost_val) / p_min) * 100, 1)
     img = data.get("image_path")
     
     if img:
@@ -600,6 +612,7 @@ def update_product(product_id, data):
                 price_mayorista = ?,
                 cost_price = ?,
                 supplier = ?,
+                profit_margin_target = ?,
                 image_path = ?,
                 order_index = ?,
                 stock = ?,
@@ -610,10 +623,11 @@ def update_product(product_id, data):
             data.get("category_id"),
             data.get("name"),
             data.get("presentation", ""),
-            float(data.get("price_minorista", 0) or 0),
-            float(data.get("price_mayorista", 0) or 0),
+            p_min,
+            p_may,
             cost_val,
             supplier_val,
+            margin_val,
             img,
             int(data.get("order_index", 0) or 0),
             stock_val,
@@ -631,6 +645,7 @@ def update_product(product_id, data):
                 price_mayorista = ?,
                 cost_price = ?,
                 supplier = ?,
+                profit_margin_target = ?,
                 order_index = ?,
                 stock = ?,
                 is_active = ?,
@@ -640,10 +655,11 @@ def update_product(product_id, data):
             data.get("category_id"),
             data.get("name"),
             data.get("presentation", ""),
-            float(data.get("price_minorista", 0) or 0),
-            float(data.get("price_mayorista", 0) or 0),
+            p_min,
+            p_may,
             cost_val,
             supplier_val,
+            margin_val,
             int(data.get("order_index", 0) or 0),
             stock_val,
             1 if data.get("is_active", 1) in [1, True, "1", "true"] else 0,

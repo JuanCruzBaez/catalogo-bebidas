@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bebidas 25 de Mayo – Ofertas de la Semana</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Paleta de tu negocio ── */
+      --principal:   #000000;
+      --secundario:  #FFFFFF;
+      --acento:      #00E5FF;
+      --fondo:       #0B0B0B;
+      --superficie:  #141414;
+
+      /* ── Variantes y complementos ── */
+      --acento-dark:  #00B4D8;
+      --acento-light: #80F3FF;
+      --dark-card:    #161616;
+      --border-card:  rgba(0, 229, 255, 0.25);
+      --text-muted:   #A3A3A3;
+    }
+
+    body {
+      background: var(--fondo);
+      color: var(--secundario);
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 900px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .flyer {
+      width: 900px;
+      background: var(--superficie);
+      border: 3px solid var(--acento);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Fondo sutil */
+    .flyer::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        -45deg, transparent, transparent 35px,
+        rgba(0, 229, 255, 0.02) 35px, rgba(0, 229, 255, 0.02) 36px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── TOP BAR ─── */
+    .top-bar {
+      position: relative; z-index: 2;
+      background: var(--principal);
+      border-bottom: 2px solid var(--acento);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+    }
+
+    .offer-badge {
+      background: var(--acento);
+      color: var(--principal);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 4px 18px;
+      border: 1.5px solid var(--secundario);
+      clip-path: polygon(7px 0%, 100% 0%, calc(100% - 7px) 100%, 0% 100%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.35);
+    }
+
+    .store-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+    .info-item strong { color: var(--acento); font-weight: 600; }
+
+    /* ─── HERO HEADER ─── */
+    .hero {
+      position: relative; z-index: 2;
+      text-align: center;
+      padding: 20px 20px 14px;
+      background: radial-gradient(circle at 50% 30%, #1e1e1e 0%, var(--principal) 85%);
+      border-bottom: 2px solid rgba(0, 229, 255, 0.35);
+    }
+
+    .hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3.6rem;
+      line-height: 0.88;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .hero-title .t-white { color: var(--secundario); }
+    .hero-title .t-num {
+      color: var(--acento);
+      font-size: 4.6rem;
+      text-shadow: 0 0 25px rgba(0, 229, 255, 0.5);
+      -webkit-text-stroke: 1.5px var(--acento-dark);
+      margin: 0 4px;
+    }
+
+    .hero-sub {
+      margin-top: 8px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: var(--secundario);
+      background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.22), transparent);
+      display: inline-block;
+      padding: 4px 32px;
+      text-transform: uppercase;
+      border-top: 1px solid var(--acento);
+      border-bottom: 1px solid var(--acento);
+    }
+
+    /* ─── SECTION DIVIDERS ─── */
+    .section-bar {
+      position: relative; z-index: 2;
+      background: linear-gradient(90deg, #071E26 0%, #004D5A 35%, #004D5A 65%, #071E26 100%);
+      text-align: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.22rem;
+      letter-spacing: 4px;
+      color: var(--secundario);
+      padding: 5px 0;
+      border-top: 1.5px solid var(--acento);
+      border-bottom: 1.5px solid var(--acento);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 10px rgba(0, 229, 255, 0.15);
+    }
+    .section-bar span { color: var(--acento); margin: 0 10px; font-size: 0.95rem; }
+
+    /* ─── PRODUCTS SECTION ─── */
+    .section-content {
+      position: relative; z-index: 2;
+      padding: 12px 16px 14px;
+    }
+
+    /* Grillas equilibradas */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 11px;
+    }
+
+    .grid-2 {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+    }
+    .grid-2 .card {
+      width: 275px;
+    }
+
+    /* ─── PRODUCT CARD ─── */
+    .card {
+      background: var(--dark-card);
+      border: 1px solid var(--border-card);
+      border-radius: 9px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+      position: relative;
+    }
+
+    /* Imagen con fondo blanco idéntico en todas */
+    .card-image-box {
+      width: 100%;
+      height: 140px;
+      background: var(--secundario);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      position: relative;
+      border-bottom: 1.5px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .card-image-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Etiqueta de volumen */
+    .vol-tag {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: var(--principal);
+      color: var(--acento);
+      border: 1px solid var(--acento);
+      border-radius: 4px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 1px 6px;
+      text-transform: uppercase;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Cuerpo de la tarjeta */
+    .card-body {
+      padding: 9px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .card-name {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--secundario);
+      line-height: 1.15;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-height: 22px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* ─── CASILLAS DE PRECIO DE COLOR ─── */
+    .price-boxes {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: auto;
+    }
+
+    /* Casilla Mayorista (Acento Neón llamativo con texto principal negro) */
+    .price-box-mayor {
+      background: linear-gradient(135deg, var(--acento) 0%, var(--acento-dark) 100%);
+      border-radius: 5px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0, 229, 255, 0.35);
+    }
+
+    .price-box-mayor .label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--principal);
+      text-transform: uppercase;
+    }
+
+    .price-box-mayor .val {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--principal);
+      letter-spacing: 0.5px;
+    }
+
+    /* Casilla Minorista (Fondo oscuro sutil con texto secundario) */
+    .price-box-menor {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      padding: 3px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .price-box-menor .label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .price-box-menor .val {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--secundario);
+      letter-spacing: 0.5px;
+    }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      position: relative; z-index: 2;
+      background: var(--principal);
+      border-top: 2px solid var(--acento);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+    }
+    .footer-brand .slogan {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.45rem;
+      letter-spacing: 3px;
+      color: var(--acento);
+      line-height: 1;
+    }
+
+    .footer-brand .sub {
+      font-size: 0.68rem;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* WhatsApp button */
+    .whatsapp-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #25D366;
+      color: #FFFFFF;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 50px;
+      box-shadow: 0 3px 10px rgba(37, 211, 102, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .whatsapp-btn svg { width: 19px; height: 19px; fill: #FFFFFF; }
+
+    /* Medios de pago */
+    .payment-chips {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pay-chip {
+      background: var(--secundario);
+      border-radius: 5px;
+      height: 28px;
+      padding: 3px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+    .pay-chip img {
+      max-height: 19px;
+      max-width: 68px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .instagram-tag {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--acento);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="flyer">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="offer-badge">
+      <span>⚡</span> OFERTAS DE LA SEMANA
+    </div>
+    <div class="store-info">
+      <div class="info-item">📍 <strong>Avenida 25 de Mayo 434</strong></div>
+      <div class="info-item">📅 Lunes a Sábado &nbsp;|&nbsp; <strong>9 a 22 hs</strong></div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-title">
+      <span class="t-white">BEBIDAS</span>
+      <span class="t-num">25</span>
+      <span class="t-white">DE MAYO</span>
+    </div>
+    <div class="hero-sub">★ MAYORISTA &amp; MINORISTA ★</div>
+  </div>
+
+  <!-- ══════ SECCIÓN: CERVEZAS (3 items) ══════ -->
+  <div class="section-bar">
+    <span>★</span> CERVEZAS <span>★</span>
+  </div>
+  <div class="section-content">
+    <div class="grid-3">
+
+      <!-- Heineken -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">710 ml</span>
+          <img src="uploads/item_heineken_710.png" alt="Heineken Latón" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Heineken Latón</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 4.199</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 4.499</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Corona -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">473 ml</span>
+          <img src="uploads/item_corona_473.png" alt="Corona" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Corona (Lata)</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 2.299</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 2.499</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waldbier -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">473 ml</span>
+          <img src="uploads/item_waldbier_473.png" alt="Waldbier" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Waldbier (Lata)</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 1.799</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 1.899</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════ SECCIÓN: ESPIRITUOSAS (3 items) ══════ -->
+  <div class="section-bar">
+    <span>★</span> ESPIRITUOSAS <span>★</span>
+  </div>
+  <div class="section-content">
+    <div class="grid-3">
+
+      <!-- Skyy Vodka -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">700 ml</span>
+          <img src="uploads/item_skyy_700.png" alt="Skyy Vodka" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Skyy Vodka</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 9.649</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 9.999</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ron Bacardí -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">750 ml</span>
+          <img src="uploads/item_bacardi_750.png" alt="Ron Bacardí" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Ron Bacardí</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 12.699</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 13.399</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fernet Branca -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">750 ml</span>
+          <img src="uploads/item_fernet_750.png" alt="Fernet Branca" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Fernet Branca</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 15.699</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 16.499</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════ SECCIÓN: GASEOSAS & AGUA (4 items) ══════ -->
+  <div class="section-bar">
+    <span>★</span> GASEOSAS &amp; AGUA <span>★</span>
+  </div>
+  <div class="section-content">
+    <div class="grid-4">
+
+      <!-- Pepsi -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">500 ml</span>
+          <img src="uploads/item_pepsi_500.png" alt="Pepsi" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Pepsi</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 1.199</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 1.249</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7UP -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">2 L</span>
+          <img src="uploads/item_7up_2l.png" alt="7UP" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">7UP</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 3.349</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 3.499</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coca-Cola -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">2,25 L</span>
+          <img src="uploads/item_cocacola_225.png" alt="Coca-Cola" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Coca-Cola</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 4.549</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 4.749</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aguas de Pila -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">6 L</span>
+          <img src="uploads/item_aguapila_6l.png" alt="Aguas de Pila" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Aguas de Pila</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 1.699</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 1.749</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════ SECCIÓN: ENERGIZANTES (2 items) ══════ -->
+  <div class="section-bar">
+    <span>★</span> ENERGIZANTES <span>★</span>
+  </div>
+  <div class="section-content">
+    <div class="grid-2">
+
+      <!-- Monster -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">473 ml</span>
+          <img src="uploads/item_monster_473.png" alt="Monster" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Monster</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 2.849</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 2.999</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speed -->
+      <div class="card">
+        <div class="card-image-box">
+          <span class="vol-tag">473 ml</span>
+          <img src="uploads/item_speed_473.png" alt="Speed" />
+        </div>
+        <div class="card-body">
+          <div class="card-name">Speed</div>
+          <div class="price-boxes">
+            <div class="price-box-mayor">
+              <span class="label">Mayor</span>
+              <span class="val">$ 2.399</span>
+            </div>
+            <div class="price-box-menor">
+              <span class="label">Menor</span>
+              <span class="val">$ 2.599</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════ FOOTER ══════ -->
+  <div class="footer">
+    <div class="footer-brand">
+      <div class="slogan">MAYORISTA &amp; MINORISTA</div>
+      <div class="sub">Para el negocio y para vos</div>
+    </div>
+
+    <div class="footer-actions">
+      <!-- Medios de Pago -->
+      <div class="payment-chips">
+        <div class="pay-chip"><img src="uploads/visa.png" alt="Visa" /></div>
+        <div class="pay-chip"><img src="uploads/mastercard.png" alt="Mastercard" /></div>
+        <div class="pay-chip"><img src="uploads/mercadopago.png" alt="Mercado Pago" /></div>
+        <div class="pay-chip"><img src="uploads/modo.png" alt="Modo" /></div>
+      </div>
+
+      <!-- WhatsApp Button -->
+      <a class="whatsapp-btn" href="https://wa.me/541121692424" target="_blank" rel="noopener">
+        <svg viewBox="0 0 32 32">
+          <path d="M16 0C7.163 0 0 7.163 0 16c0 2.822.736 5.469 2.027 7.774L0 32l8.476-2.007A15.934 15.934 0 0016 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm0 29.333a13.27 13.27 0 01-6.773-1.853l-.486-.289-5.03 1.191 1.214-4.894-.317-.503A13.267 13.267 0 012.667 16C2.667 8.636 8.636 2.667 16 2.667S29.333 8.636 29.333 16 23.364 29.333 16 29.333zm7.307-9.907c-.4-.2-2.363-1.166-2.729-1.3-.366-.133-.633-.2-.9.2-.267.4-1.033 1.3-1.266 1.567-.233.267-.467.3-.867.1-.4-.2-1.688-.622-3.215-1.984-1.188-1.06-1.99-2.368-2.223-2.768-.233-.4-.025-.616.175-.816.18-.18.4-.467.6-.7.2-.233.267-.4.4-.667.133-.267.067-.5-.033-.7-.1-.2-.9-2.167-1.233-2.967-.325-.78-.654-.674-.9-.687l-.767-.013c-.267 0-.7.1-1.067.5-.367.4-1.4 1.367-1.4 3.334s1.433 3.867 1.633 4.134c.2.267 2.82 4.303 6.833 6.033.955.413 1.7.66 2.282.844.958.305 1.832.262 2.521.159.769-.115 2.363-.967 2.696-1.9.333-.933.333-1.733.233-1.9-.1-.167-.367-.267-.767-.467z"/>
+        </svg>
+        +54 11 2169-2424
+      </a>
+
+      <!-- Instagram -->
+      <div class="instagram-tag">
+        <span>📸</span> @bebidas25demayo
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+
+# Cache & Temp
+.cache/
+.remotion/
+temp_audio/
+processed_audio/
+
+# Video renders & frames (pesados, no necesarios en servidor web)
+*.mp4
+test_frame*.jpg
+test_render.png
+
+# Video remotion (solo para generación de videos local)
+video-remotion/
+
+# Facturas locales
+Facturas emitidas/
+catalogo_backup_*.db
+

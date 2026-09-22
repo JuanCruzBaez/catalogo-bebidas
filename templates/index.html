@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-black text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Digital & Gestor de PDFs - Bebidas 25 de Mayo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            red: '#B81414',
+                            redDark: '#8F0E0E',
+                            gold: '#F5C518',
+                            goldDark: '#D4A60D',
+                            dark: '#0A0A0A',
+                            panel: '#171717',
+                            card: '#121212'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="h-full antialiased flex flex-col font-sans selection:bg-brand-red selection:text-white bg-black" x-data="catalogApp">
+
+    <!-- BARRA SUPERIOR / HEADER -->
+    <header class="bg-neutral-950 border-b border-neutral-800 sticky top-0 z-30 shadow-2xl">
+        <div class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 sm:h-20 gap-3 lg:gap-6">
+                
+                <!-- Logo & Nombre de la empresa (Expandido a la izquierda) -->
+                <div class="flex items-center space-x-3.5 cursor-pointer group flex-shrink-0 min-w-0" @click="showSettingsModal = true">
+                    <div class="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-brand-gold bg-black flex-shrink-0 shadow-lg group-hover:scale-105 transition-all-200">
+                        <template x-if="settings.logo_path">
+                            <img :src="'/' + settings.logo_path + '?t=' + Date.now()" alt="Logo" class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="!settings.logo_path">
+                            <span class="text-sm font-bold text-brand-gold flex items-center justify-center h-full">25</span>
+                        </template>
+                    </div>
+                    <div class="min-w-0 flex flex-col justify-center">
+                        <div class="flex items-center space-x-2">
+                            <h1 class="text-base sm:text-xl lg:text-2xl font-black tracking-wider text-white uppercase whitespace-nowrap" x-text="settings.business_name || 'BEBIDAS 25 DE MAYO'"></h1>
+                            <span class="bg-brand-red text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest hidden sm:inline-block shadow-sm">Catálogo</span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-brand-gold font-medium tracking-wide whitespace-nowrap" x-text="settings.banner_phrase || 'Para tu negocio y para vos'"></p>
+                    </div>
+                </div>
+
+                <!-- PESTAÑAS PRINCIPALES DE NAVEGACIÓN -->
+                <div class="hidden md:flex items-center bg-neutral-900 p-1 rounded-xl border border-neutral-800 flex-shrink-0 space-x-1">
+                    <button 
+                        @click="currentView = 'products'"
+                        :class="currentView === 'products' ? 'bg-neutral-800 text-brand-gold font-bold shadow' : 'text-slate-400 hover:text-white'"
+                        class="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all-200"
+                    >
+                        <i data-lucide="package" class="w-4 h-4"></i>
+                        <span>Productos</span>
+                        <span class="text-[10px] opacity-75" x-text="'(' + totalProductsCount + ')'"></span>
+                    </button>
+                    <button 
+                        @click="currentView = 'sales'; fetchSales(); fetchSalesSummary()"
+                        :class="currentView === 'sales' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 font-bold shadow-lg' : 'text-slate-400 hover:text-emerald-400'"
+                        class="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all-200"
+                    >
+                        <i data-lucide="shopping-cart" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Punto de Venta</span>
+                        <span x-show="cartTotalItems > 0" class="bg-emerald-500 text-black text-[10px] font-black px-1.5 py-0.2 rounded-full" x-text="cartTotalItems"></span>
+                    </button>
+                    <button 
+                        @click="currentView = 'categories'"
+                        :class="currentView === 'categories' ? 'bg-neutral-800 text-brand-gold font-bold shadow' : 'text-slate-400 hover:text-white'"
+                        class="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all-200"
+                    >
+                        <i data-lucide="tags" class="w-4 h-4"></i>
+                        <span>Categorías</span>
+                        <span class="text-[10px] opacity-75" x-text="'(' + totalCategoriesCount + ')'"></span>
+                    </button>
+                    <a 
+                        href="/" 
+                        target="_blank"
+                        class="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-all-200"
+                        title="Abrir tienda web pública para clientes"
+                    >
+                        <i data-lucide="store" class="w-4 h-4 text-amber-400"></i>
+                        <span>Tienda Online ↗</span>
+                    </a>
+                </div>
+
+                <!-- Botones de Acción y Exportación PDF -->
+                <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                    
+                    <!-- Botón Exportar PDF Minorista (Portada + Índice + 12 fotos por pág) -->
+                    <div class="relative flex items-center bg-brand-red hover:bg-brand-redDark text-white rounded-lg shadow-lg transition-all-200">
+                        <button @click="exportPdf('minorista', true)" class="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-bold tracking-wide">
+                            <i data-lucide="file-down" class="w-4 h-4 text-brand-gold"></i>
+                            <span>PDF Minorista</span>
+                        </button>
+                        <button @click="exportPdf('minorista', false)" title="Previsualizar PDF Minorista" class="px-2 py-2 border-l border-red-800 hover:bg-red-900 rounded-r-lg">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Botón Exportar PDF Combinado (Mayorista + Minorista con Doble Precio) -->
+                    <div class="relative flex items-center bg-gradient-to-r from-red-700 to-amber-600 hover:from-red-600 hover:to-amber-500 text-white rounded-lg shadow-lg transition-all-200">
+                        <button @click="exportPdf('combinado', true)" class="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-bold tracking-wide" title="Descargar Catálogo con Doble Precio (Mayorista + Minorista)">
+                            <i data-lucide="layers" class="w-4 h-4 text-amber-200"></i>
+                            <span>PDF Combinado</span>
+                        </button>
+                        <button @click="exportPdf('combinado', false)" title="Previsualizar Catálogo Combinado" class="px-2 py-2 border-l border-amber-700/60 hover:bg-amber-700/40 rounded-r-lg">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Botón Exportar PDF Mayorista -->
+                    <div class="relative flex items-center bg-brand-gold hover:bg-brand-goldDark text-slate-950 rounded-lg shadow-lg transition-all-200">
+                        <button @click="exportPdf('mayorista', true)" class="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-bold tracking-wide">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-brand-red"></i>
+                            <span>PDF Mayorista</span>
+                        </button>
+                        <button @click="exportPdf('mayorista', false)" title="Previsualizar PDF Mayorista" class="px-2 py-2 border-l border-amber-500 hover:bg-amber-400 rounded-r-lg">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                    <div class="h-6 w-px bg-neutral-800 hidden md:block"></div>
+
+                    <!-- Botón Ajuste Masivo Precios -->
+                    <button @click="showBulkPriceModal = true" title="Aumento masivo de precios (%)" class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 p-2 sm:px-3 sm:py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all-200 border border-neutral-700">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="hidden lg:inline">Ajuste %</span>
+                    </button>
+
+                    <!-- Botón Configuración General -->
+                    <button @click="showSettingsModal = true" title="Configurar Catálogo y Negocio" class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 p-2 sm:px-3 sm:py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all-200 border border-neutral-700">
+                        <i data-lucide="settings" class="w-4 h-4 text-brand-gold"></i>
+                        <span class="hidden lg:inline">Configuración</span>
+                    </button>
+
+                    <!-- Botón Importar/Exportar -->
+                    <button @click="showImportModal = true" title="Importar / Exportar Excel" class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 p-2 sm:px-2.5 sm:py-2 rounded-lg text-xs font-semibold flex items-center transition-all-200 border border-neutral-700">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-sky-400"></i>
+                    </button>
+
+                    <!-- Botón Nuevo Producto (si estamos en vista de productos) -->
+                    <button x-show="currentView === 'products'" @click="openNewProductModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center space-x-1 shadow-md transition-all-200">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Nuevo Producto</span>
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVEGACIÓN MÓVIL (TABS) -->
+    <div class="md:hidden bg-neutral-950 border-b border-neutral-800 px-3 py-2 flex items-center justify-around text-xs font-bold">
+        <button 
+            @click="currentView = 'products'"
+            :class="currentView === 'products' ? 'text-brand-gold border-b-2 border-brand-gold pb-1' : 'text-slate-400'"
+        >
+            📦 Productos (<span x-text="totalProductsCount"></span>)
+        </button>
+        <button 
+            @click="currentView = 'sales'; fetchSales(); fetchSalesSummary()"
+            :class="currentView === 'sales' ? 'text-emerald-400 border-b-2 border-emerald-400 pb-1' : 'text-slate-400'"
+            class="flex items-center space-x-1"
+        >
+            <span>🛒 Ventas</span>
+            <span x-show="cartTotalItems > 0" class="bg-emerald-500 text-black text-[10px] font-black px-1.5 py-0.2 rounded-full" x-text="cartTotalItems"></span>
+        </button>
+        <button 
+            @click="currentView = 'categories'"
+            :class="currentView === 'categories' ? 'text-brand-gold border-b-2 border-brand-gold pb-1' : 'text-slate-400'"
+        >
+            🏷️ Categorías (<span x-text="totalCategoriesCount"></span>)
+        </button>
+    </div>
+
+    <!-- CUERPO PRINCIPAL -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
+        
+        <!-- ========================================================================= -->
+        <!-- VISTA 1: INVENTARIO DE PRODUCTOS -->
+        <!-- ========================================================================= -->
+        <div x-show="currentView === 'products'" class="space-y-6 flex flex-col flex-1">
+            
+            <!-- BARRA DE FILTROS, BÚSQUEDA Y STOCK -->
+            <div class="bg-neutral-950 p-4 rounded-xl border border-neutral-800 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                
+                <!-- Buscador en tiempo real -->
+                <div class="relative flex-1 max-w-md">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                    <input 
+                        type="text" 
+                        x-model="searchQuery" 
+                        @input.debounce.300ms="fetchProducts()"
+                        placeholder="Buscar bebida, medida, categoría..." 
+                        class="w-full bg-neutral-900 border border-neutral-700 text-slate-100 text-sm rounded-lg pl-9 pr-4 py-2 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                    >
+                </div>
+
+                <!-- Filtro de Stock (Todos / En Stock / Agotados) -->
+                <div class="flex items-center bg-neutral-900 p-1 rounded-lg border border-neutral-800 text-xs font-semibold">
+                    <button 
+                        @click="filterStock = 'all'" 
+                        :class="filterStock === 'all' ? 'bg-neutral-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                        class="px-2.5 py-1.5 rounded transition-colors"
+                    >
+                        Todos (<span x-text="totalProductsCount"></span>)
+                    </button>
+                    <button 
+                        @click="filterStock = 'in_stock'" 
+                        :class="filterStock === 'in_stock' ? 'bg-emerald-900/60 text-emerald-300 shadow' : 'text-slate-400 hover:text-slate-200'"
+                        class="px-2.5 py-1.5 rounded transition-colors flex items-center space-x-1"
+                    >
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>En Stock (<span x-text="activeProductsCount"></span>)</span>
+                    </button>
+                    <button 
+                        @click="filterStock = 'out_of_stock'" 
+                        :class="filterStock === 'out_of_stock' ? 'bg-rose-900/60 text-rose-300 shadow' : 'text-slate-400 hover:text-slate-200'"
+                        class="px-2.5 py-1.5 rounded transition-colors flex items-center space-x-1"
+                    >
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span>Agotados (<span x-text="outOfStockCount"></span>)</span>
+                    </button>
+                </div>
+
+                <!-- Filtro de Categoría Dropdown -->
+                <div class="flex items-center space-x-2">
+                    <select 
+                        x-model="selectedCategory" 
+                        @change="fetchProducts()"
+                        class="bg-neutral-900 border border-neutral-700 text-slate-200 text-xs sm:text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-brand-gold"
+                    >
+                        <option value="all">Todas las categorías</option>
+                        <template x-for="cat in categories" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.name + ' (' + cat.product_count + ')'"></option>
+                        </template>
+                    </select>
+
+                    <button @click="currentView = 'categories'" title="Ir al Gestor de Categorías" class="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-lg text-slate-300">
+                        <i data-lucide="settings-2" class="w-4 h-4 text-brand-gold"></i>
+                    </button>
+                </div>
+
+                <!-- Ordenar y Vista -->
+                <div class="flex items-center space-x-3">
+                    <select 
+                        x-model="sortBy" 
+                        class="bg-neutral-900 border border-neutral-700 text-slate-200 text-xs sm:text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-brand-gold"
+                    >
+                        <option value="category">Por Categoría</option>
+                        <option value="name">Por Nombre (A-Z)</option>
+                        <option value="price_asc">Menor Precio</option>
+                        <option value="price_desc">Mayor Precio</option>
+                        <option value="stock_asc">Menor Stock</option>
+                        <option value="stock_desc">Mayor Stock</option>
+                    </select>
+
+                    <div class="flex items-center bg-neutral-900 rounded-lg border border-neutral-700 p-0.5">
+                        <button 
+                            @click="viewMode = 'table'" 
+                            :class="viewMode === 'table' ? 'bg-neutral-800 text-white' : 'text-slate-400 hover:text-slate-200'"
+                            class="p-1.5 rounded transition-colors"
+                            title="Vista Lista"
+                        >
+                            <i data-lucide="list" class="w-4 h-4"></i>
+                        </button>
+                        <button 
+                            @click="viewMode = 'cards'" 
+                            :class="viewMode === 'cards' ? 'bg-neutral-800 text-white' : 'text-slate-400 hover:text-slate-200'"
+                            class="p-1.5 rounded transition-colors"
+                            title="Vista Cuadrícula"
+                        >
+                            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- PILLS RÁPIDAS DE CATEGORÍAS -->
+            <div class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin">
+                <button 
+                    @click="selectedCategory = 'all'; fetchProducts()"
+                    :class="selectedCategory === 'all' ? 'bg-brand-gold text-slate-950 font-bold' : 'bg-neutral-900 text-slate-300 hover:bg-neutral-800 border border-neutral-800'"
+                    class="px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all-200 flex items-center space-x-1"
+                >
+                    <span>Todas</span>
+                    <span class="opacity-75 text-[10px]" x-text="'(' + totalProductsCount + ')'"></span>
+                </button>
+
+                <template x-for="cat in categories" :key="cat.id">
+                    <button 
+                        @click="selectedCategory = cat.id; fetchProducts()"
+                        :class="selectedCategory === cat.id ? 'bg-brand-red text-white font-bold' : 'bg-neutral-900 text-slate-300 hover:bg-neutral-800 border border-neutral-800'"
+                        class="px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all-200 flex items-center space-x-1"
+                    >
+                        <span x-text="cat.name"></span>
+                        <span class="opacity-75 text-[10px]" x-text="'(' + cat.product_count + ')'"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- TABLA Y CUADRÍCULA DE PRODUCTOS -->
+            <div class="flex-1 bg-neutral-950 rounded-xl border border-neutral-800 shadow-2xl overflow-hidden flex flex-col">
+                
+                <!-- ESTADO DE CARGA -->
+                <div x-show="isLoading" class="p-12 flex flex-col items-center justify-center space-y-3">
+                    <i data-lucide="loader-2" class="w-8 h-8 text-brand-gold animate-spin"></i>
+                    <p class="text-sm text-slate-400">Cargando inventario de bebidas...</p>
+                </div>
+
+                <!-- TABLA DE PRODUCTOS (VISTA LISTA) -->
+                <div x-show="!isLoading && viewMode === 'table'" class="overflow-x-auto flex-1">
+                    <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+                        <thead class="bg-neutral-900 text-slate-400 uppercase text-[11px] font-bold tracking-wider border-b border-neutral-800 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-3 w-12 text-center">Foto</th>
+                                <th class="px-4 py-3">Producto / Presentación</th>
+                                <th class="px-3 py-3">Categoría</th>
+                                <th class="px-3 py-3 text-right">Costo / Prov.</th>
+                                <th class="px-4 py-3 text-right">Minorista / Utilidad</th>
+                                <th class="px-4 py-3 text-right">Mayorista / Utilidad</th>
+                                <th class="px-3 py-3 text-center w-32">Stock</th>
+                                <th class="px-3 py-3 text-center">En Catálogo</th>
+                                <th class="px-3 py-3 text-center w-28">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-900 font-medium">
+                            <template x-for="prod in filteredAndSortedProducts" :key="prod.id">
+                                <tr class="hover:bg-neutral-900/60 transition-colors" :class="{'opacity-60': (prod.stock || 0) <= 0}">
+                                    <!-- Imagen -->
+                                    <td class="px-3 py-2.5 text-center">
+                                        <div class="w-10 h-10 rounded-lg overflow-hidden bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto">
+                                            <template x-if="prod.image_path">
+                                                <img :src="'/' + prod.image_path" class="w-full h-full object-contain">
+                                            </template>
+                                            <template x-if="!prod.image_path">
+                                                <span class="text-lg">🍾</span>
+                                            </template>
+                                        </div>
+                                    </td>
+
+                                    <!-- Nombre y Presentación -->
+                                    <td class="px-4 py-2.5">
+                                        <div class="font-bold text-white text-sm flex items-center space-x-2">
+                                            <span x-text="prod.name"></span>
+                                            <span x-show="(prod.stock || 0) <= 0" class="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-500/30">AGOTADO</span>
+                                        </div>
+                                        <div class="text-xs text-slate-400" x-text="prod.presentation || 'Sin presentación'"></div>
+                                    </td>
+
+                                    <!-- Categoría -->
+                                    <td class="px-3 py-2.5">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-neutral-900 text-brand-gold border border-neutral-800 cursor-pointer hover:underline" @click="viewCategoryProducts(prod.category_id)" x-text="prod.category_name"></span>
+                                    </td>
+
+                                    <!-- Costo de Compra y Proveedor -->
+                                    <td class="px-3 py-2.5 text-right font-mono">
+                                        <div class="font-bold text-slate-300" x-text="prod.cost_price > 0 ? formatMoney(prod.cost_price) : '-'"></div>
+                                        <div class="text-[10px] text-slate-500 truncate max-w-[130px] ml-auto" x-text="prod.supplier || ''" :title="prod.supplier"></div>
+                                    </td>
+
+                                    <!-- Precio Minorista y Utilidad Neta -->
+                                    <td class="px-4 py-2.5 text-right">
+                                        <div class="font-extrabold text-brand-red text-sm" x-text="formatMoney(prod.price_minorista)"></div>
+                                        <template x-if="prod.cost_price > 0 && prod.price_minorista > 0">
+                                            <div class="text-[11px] font-bold inline-flex items-center space-x-1" :class="getProductProfit(prod.price_minorista, prod.cost_price).isNegative ? 'text-rose-400' : 'text-emerald-400'">
+                                                <span x-text="(getProductProfit(prod.price_minorista, prod.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(prod.price_minorista, prod.cost_price).profit)"></span>
+                                                <span class="text-[10px] opacity-75 font-mono" x-text="'(' + getProductProfit(prod.price_minorista, prod.cost_price).margin + '%)'"></span>
+                                            </div>
+                                        </template>
+                                    </td>
+
+                                    <!-- Precio Mayorista y Utilidad Neta -->
+                                    <td class="px-4 py-2.5 text-right">
+                                        <div class="font-bold text-brand-gold text-sm" x-text="formatMoney(prod.price_mayorista)"></div>
+                                        <template x-if="prod.cost_price > 0 && prod.price_mayorista > 0">
+                                            <div class="text-[11px] font-bold inline-flex items-center space-x-1" :class="getProductProfit(prod.price_mayorista, prod.cost_price).isNegative ? 'text-rose-400' : 'text-amber-400'">
+                                                <span x-text="(getProductProfit(prod.price_mayorista, prod.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(prod.price_mayorista, prod.cost_price).profit)"></span>
+                                                <span class="text-[10px] opacity-75 font-mono" x-text="'(' + getProductProfit(prod.price_mayorista, prod.cost_price).margin + '%)'"></span>
+                                            </div>
+                                        </template>
+                                    </td>
+
+                                    <!-- Control de Stock en Vivo -->
+                                    <td class="px-4 py-2.5 text-center">
+                                        <div class="inline-flex items-center space-x-1.5 bg-neutral-900 border border-neutral-800 px-2 py-1 rounded-lg">
+                                            <button @click="quickUpdateStock(prod, -1)" class="w-5 h-5 flex items-center justify-center bg-neutral-800 hover:bg-neutral-700 text-slate-300 rounded font-bold text-xs">-</button>
+                                            <span class="font-bold text-xs px-1 min-w-[24px]" :class="(prod.stock || 0) <= 0 ? 'text-rose-400' : 'text-emerald-400'" x-text="prod.stock !== undefined ? prod.stock : 10"></span>
+                                            <button @click="quickUpdateStock(prod, 1)" class="w-5 h-5 flex items-center justify-center bg-neutral-800 hover:bg-neutral-700 text-slate-300 rounded font-bold text-xs">+</button>
+                                        </div>
+                                    </td>
+
+                                    <!-- Activo Switch -->
+                                    <td class="px-4 py-2.5 text-center">
+                                        <button 
+                                            @click="toggleProductActive(prod)" 
+                                            :class="prod.is_active ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-neutral-800 text-slate-400 border-neutral-700'"
+                                            class="px-2.5 py-1 rounded-full text-xs font-bold border transition-colors"
+                                            x-text="prod.is_active ? 'Visible' : 'Oculto'"
+                                        ></button>
+                                    </td>
+
+                                    <!-- Acciones -->
+                                    <td class="px-4 py-2.5 text-center">
+                                        <div class="flex items-center justify-center space-x-1.5">
+                                            <button @click="openEditProductModal(prod)" title="Editar" class="p-1.5 hover:bg-neutral-800 text-sky-400 rounded transition-colors">
+                                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                                            </button>
+                                            <button @click="duplicateProduct(prod)" title="Duplicar" class="p-1.5 hover:bg-neutral-800 text-amber-400 rounded transition-colors">
+                                                <i data-lucide="copy" class="w-4 h-4"></i>
+                                            </button>
+                                            <button @click="deleteProduct(prod)" title="Eliminar" class="p-1.5 hover:bg-neutral-800 text-rose-400 rounded transition-colors">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- CUADRÍCULA DE TARJETAS (VISTA CARDS) -->
+                <div x-show="!isLoading && viewMode === 'cards'" class="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[70vh]">
+                    <template x-for="prod in filteredAndSortedProducts" :key="prod.id">
+                        <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col justify-between hover:border-neutral-700 transition-all-200 shadow-md relative" :class="{'opacity-75': (prod.stock || 0) <= 0}">
+                            <span x-show="(prod.stock || 0) <= 0" class="absolute top-3 right-3 bg-rose-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow z-10">AGOTADO</span>
+
+                            <div>
+                                <div class="relative w-full h-36 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-neutral-800 mb-3">
+                                    <template x-if="prod.image_path">
+                                        <img :src="'/' + prod.image_path" class="w-full h-full object-contain p-2">
+                                    </template>
+                                    <template x-if="!prod.image_path">
+                                        <span class="text-4xl">🍾</span>
+                                    </template>
+                                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-900 text-brand-gold border border-neutral-700" x-text="prod.category_name"></span>
+                                </div>
+
+                                <h3 class="font-bold text-white text-base truncate" x-text="prod.name"></h3>
+                                <p class="text-xs text-slate-400 mb-3" x-text="prod.presentation || 'Presentación unitaria'"></p>
+
+                                <div class="space-y-1.5 bg-black p-2.5 rounded-lg border border-neutral-800 mb-3">
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-slate-400">Minorista:</span>
+                                        <div class="text-right">
+                                            <span class="font-extrabold text-brand-red text-sm" x-text="formatMoney(prod.price_minorista)"></span>
+                                            <template x-if="prod.cost_price > 0 && prod.price_minorista > 0">
+                                                <div class="text-[10px] font-bold" :class="getProductProfit(prod.price_minorista, prod.cost_price).isNegative ? 'text-rose-400' : 'text-emerald-400'" x-text="'Utilidad: ' + (getProductProfit(prod.price_minorista, prod.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(prod.price_minorista, prod.cost_price).profit) + ' (' + getProductProfit(prod.price_minorista, prod.cost_price).margin + '%)'"></div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs pt-1 border-t border-neutral-900">
+                                        <span class="text-slate-400">Mayorista:</span>
+                                        <div class="text-right">
+                                            <span class="font-bold text-brand-gold text-sm" x-text="formatMoney(prod.price_mayorista)"></span>
+                                            <template x-if="prod.cost_price > 0 && prod.price_mayorista > 0">
+                                                <div class="text-[10px] font-bold" :class="getProductProfit(prod.price_mayorista, prod.cost_price).isNegative ? 'text-rose-400' : 'text-amber-400'" x-text="'Utilidad: ' + (getProductProfit(prod.price_mayorista, prod.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(prod.price_mayorista, prod.cost_price).profit) + ' (' + getProductProfit(prod.price_mayorista, prod.cost_price).margin + '%)'"></div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <template x-if="prod.cost_price > 0">
+                                        <div class="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-900 text-slate-500">
+                                            <span>Costo / Prov:</span>
+                                            <span class="font-mono text-slate-300 font-semibold" x-text="formatMoney(prod.cost_price) + (prod.supplier ? ' · ' + prod.supplier : '')"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-neutral-800">
+                                <div class="flex items-center space-x-1 bg-black px-1.5 py-0.5 rounded border border-neutral-800">
+                                    <button @click="quickUpdateStock(prod, -1)" class="text-xs text-slate-400 hover:text-white px-1">-</button>
+                                    <span class="text-[11px] font-bold" :class="(prod.stock || 0) <= 0 ? 'text-rose-400' : 'text-emerald-400'" x-text="'Stock: ' + (prod.stock !== undefined ? prod.stock : 10)"></span>
+                                    <button @click="quickUpdateStock(prod, 1)" class="text-xs text-slate-400 hover:text-white px-1">+</button>
+                                </div>
+
+                                <div class="flex items-center space-x-1">
+                                    <button @click="openEditProductModal(prod)" class="p-1.5 hover:bg-neutral-800 text-sky-400 rounded">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                    </button>
+                                    <button @click="duplicateProduct(prod)" class="p-1.5 hover:bg-neutral-800 text-amber-400 rounded">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
+                                    </button>
+                                    <button @click="deleteProduct(prod)" class="p-1.5 hover:bg-neutral-800 text-rose-400 rounded">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- VACÍO -->
+                <div x-show="!isLoading && filteredAndSortedProducts.length === 0" class="p-12 text-center text-slate-400">
+                    <i data-lucide="package-x" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                    <p>No se encontraron productos en el inventario.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VISTA 2: PÁGINA ADMINISTRADORA DE CATEGORÍAS -->
+        <!-- ========================================================================= -->
+        <div x-show="currentView === 'categories'" class="space-y-6 flex flex-col flex-1" x-cloak>
+            
+            <!-- ENCABEZADO Y RESUMEN -->
+            <div class="bg-neutral-950 p-6 rounded-2xl border border-neutral-800 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-extrabold text-white flex items-center space-x-2">
+                        <i data-lucide="tags" class="w-6 h-6 text-brand-gold"></i>
+                        <span>Administrador de Categorías</span>
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">
+                        Al cambiar el nombre o el orden de una categoría, <strong class="text-brand-gold">todos los productos asociados y las secciones de los PDFs se actualizan automáticamente</strong> en tiempo real.
+                    </p>
+                </div>
+
+                <button @click="currentView = 'products'" class="bg-neutral-800 hover:bg-neutral-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 border border-neutral-700 transition-colors">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Volver a Productos</span>
+                </button>
+            </div>
+
+            <!-- FORMULARIO CREAR CATEGORÍA -->
+            <div class="bg-neutral-950 p-4 rounded-xl border border-neutral-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                <form @submit.prevent="addCategory()" class="flex-1 flex items-center space-x-2 w-full">
+                    <div class="relative flex-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                        <input 
+                            type="text" 
+                            x-model="newCategoryName" 
+                            placeholder="Nombre de la nueva categoría (ej: TEQUILAS, LICORES, SIDRAS)..." 
+                            class="w-full bg-neutral-900 border border-neutral-700 text-slate-100 text-sm rounded-lg pl-9 pr-4 py-2.5 uppercase focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                        >
+                    </div>
+                    <button type="submit" class="bg-brand-gold hover:bg-brand-goldDark text-slate-950 font-bold px-5 py-2.5 rounded-lg text-xs sm:text-sm flex items-center space-x-1.5 shadow-md flex-shrink-0 transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Crear Categoría</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- TABLA / LISTADO DE CATEGORÍAS -->
+            <div class="bg-neutral-950 rounded-xl border border-neutral-800 shadow-2xl overflow-hidden flex flex-col flex-1">
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+                        <thead class="bg-neutral-900 text-slate-400 uppercase text-[11px] font-bold tracking-wider border-b border-neutral-800 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 w-20 text-center">Orden PDF</th>
+                                <th class="px-4 py-3">Nombre de la Categoría</th>
+                                <th class="px-4 py-3 text-center w-40">Productos Vinculados</th>
+                                <th class="px-4 py-3 text-center w-64">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-900 font-medium">
+                            <template x-for="(cat, idx) in categories" :key="cat.id">
+                                <tr class="hover:bg-neutral-900/60 transition-colors">
+                                    
+                                    <!-- Controles de Orden (Arriba / Abajo) -->
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center space-x-1">
+                                            <button 
+                                                @click="swapCategoryOrder(cat, 'up')" 
+                                                :disabled="idx === 0"
+                                                :class="idx === 0 ? 'opacity-25 cursor-not-allowed' : 'hover:bg-neutral-800 text-brand-gold'"
+                                                title="Mover arriba en el catálogo" 
+                                                class="p-1 rounded transition-colors"
+                                            >
+                                                <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                                            </button>
+                                            <span class="text-xs font-extrabold text-slate-400 w-4 text-center" x-text="idx + 1"></span>
+                                            <button 
+                                                @click="swapCategoryOrder(cat, 'down')" 
+                                                :disabled="idx === categories.length - 1"
+                                                :class="idx === categories.length - 1 ? 'opacity-25 cursor-not-allowed' : 'hover:bg-neutral-800 text-brand-gold'"
+                                                title="Mover abajo en el catálogo" 
+                                                class="p-1 rounded transition-colors"
+                                            >
+                                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                    <!-- Nombre de la Categoría con Edición Inline -->
+                                    <td class="px-4 py-3">
+                                        <!-- Modo Normal -->
+                                        <div x-show="editingCategoryId !== cat.id" class="flex items-center space-x-3">
+                                            <span class="font-extrabold text-white text-base tracking-wide" x-text="cat.name"></span>
+                                            <button @click="startEditingCategory(cat)" title="Editar nombre de la categoría" class="text-slate-400 hover:text-sky-400 p-1">
+                                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Modo Edición Inline -->
+                                        <div x-show="editingCategoryId === cat.id" class="flex items-center space-x-2" x-cloak>
+                                            <input 
+                                                type="text" 
+                                                x-model="editingCategoryName" 
+                                                @keydown.enter="saveCategoryName(cat)"
+                                                @keydown.escape="cancelEditingCategory()"
+                                                class="bg-black border-2 border-brand-gold rounded-lg px-3 py-1.5 text-sm font-bold text-white uppercase focus:outline-none max-w-sm"
+                                            >
+                                            <button @click="saveCategoryName(cat)" title="Guardar cambios" class="bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 rounded-lg shadow">
+                                                <i data-lucide="check" class="w-4 h-4"></i>
+                                            </button>
+                                            <button @click="cancelEditingCategory()" title="Cancelar" class="bg-neutral-800 hover:bg-neutral-700 text-slate-300 p-1.5 rounded-lg">
+                                                <i data-lucide="x" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                    <!-- Contador de Productos -->
+                                    <td class="px-4 py-3 text-center">
+                                        <button 
+                                            @click="viewCategoryProducts(cat.id)"
+                                            class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all"
+                                            :class="cat.product_count > 0 ? 'bg-brand-gold/10 text-brand-gold border border-brand-gold/30 hover:bg-brand-gold/20' : 'bg-neutral-900 text-slate-400 border border-neutral-800'"
+                                        >
+                                            <span x-text="cat.product_count + ' productos'"></span>
+                                            <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
+                                        </button>
+                                    </td>
+
+                                    <!-- Acciones -->
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center space-x-2">
+                                            <!-- Ver Productos -->
+                                            <button 
+                                                @click="viewCategoryProducts(cat.id)" 
+                                                class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-neutral-700 transition-colors"
+                                                title="Ver los productos de esta categoría"
+                                            >
+                                                <i data-lucide="eye" class="w-3.5 h-3.5 text-brand-gold"></i>
+                                                <span class="hidden sm:inline">Ver</span>
+                                            </button>
+
+                                            <!-- Mover / Reasignar Productos -->
+                                            <button 
+                                                @click="openReassignModal(cat)"
+                                                :disabled="cat.product_count === 0"
+                                                :class="cat.product_count === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-neutral-800 text-sky-300'"
+                                                class="bg-neutral-900 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-neutral-700 transition-colors"
+                                                title="Mover todos los productos a otra categoría"
+                                            >
+                                                <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-sky-400"></i>
+                                                <span class="hidden sm:inline">Mover</span>
+                                            </button>
+
+                                            <!-- Eliminar Categoría -->
+                                            <button 
+                                                @click="openDeleteCategoryModal(cat)" 
+                                                class="bg-neutral-900 hover:bg-rose-950/40 text-rose-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-neutral-700 hover:border-rose-800 transition-colors"
+                                                title="Eliminar categoría"
+                                            >
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                <span class="hidden sm:inline">Eliminar</span>
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VISTA 3: GESTIÓN DE VENTAS (PUNTO DE VENTA & HISTORIAL) -->
+        <!-- ========================================================================= -->
+        <div x-show="currentView === 'sales'" class="space-y-6 flex flex-col flex-1" x-cloak>
+            
+            <!-- BARRA SUPERIOR DE MÉTRICAS Y SUB-NAVEGACIÓN -->
+            <div class="bg-neutral-950 p-4 sm:p-5 rounded-2xl border border-neutral-800 shadow-xl space-y-4">
+                
+                <!-- Fila 1: Selector de Períodos de Facturación y Sub-navegación -->
+                <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 border-b border-neutral-800/80 pb-3">
+                    
+                    <!-- Selector de Períodos (Día, Semana, Mes, Año, Histórico Total) -->
+                    <div class="flex flex-wrap items-center gap-1.5 bg-neutral-900/90 p-1 rounded-xl border border-neutral-800">
+                        <span class="text-[10px] uppercase font-black text-slate-400 px-2 tracking-wider flex items-center space-x-1">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-gold"></i>
+                            <span>Facturación:</span>
+                        </span>
+                        <button 
+                            @click="salesPeriod = 'today'"
+                            :class="salesPeriod === 'today' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        >
+                            📅 Hoy (Día)
+                        </button>
+                        <button 
+                            @click="salesPeriod = 'week'"
+                            :class="salesPeriod === 'week' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        >
+                            📆 Esta Semana
+                        </button>
+                        <button 
+                            @click="salesPeriod = 'month'"
+                            :class="salesPeriod === 'month' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        >
+                            📊 Este Mes
+                        </button>
+                        <button 
+                            @click="salesPeriod = 'year'"
+                            :class="salesPeriod === 'year' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        >
+                            📈 Este Año
+                        </button>
+                        <button 
+                            @click="salesPeriod = 'historical'"
+                            :class="salesPeriod === 'historical' ? 'bg-brand-gold text-black font-black shadow-lg shadow-amber-900/30' : 'text-slate-400 hover:text-brand-gold'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        >
+                            ⭐ Total Histórico
+                        </button>
+                    </div>
+
+                    <!-- Sub-pestañas: Nueva Venta vs Historial -->
+                    <div class="flex items-center bg-neutral-900 p-1 rounded-xl border border-neutral-800 flex-shrink-0 space-x-1 self-start lg:self-auto">
+                        <button 
+                            @click="salesSubView = 'pos'"
+                            :class="salesSubView === 'pos' ? 'bg-emerald-600 text-white font-bold shadow-md' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all-200"
+                        >
+                            <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                            <span>Nueva Venta (Caja)</span>
+                        </button>
+                        <button 
+                            @click="salesSubView = 'history'; fetchSales()"
+                            :class="salesSubView === 'history' ? 'bg-neutral-800 text-brand-gold font-bold shadow' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all-200"
+                        >
+                            <i data-lucide="history" class="w-4 h-4"></i>
+                            <span>Historial de Ventas</span>
+                            <span class="text-[10px] opacity-75" x-text="'(' + salesHistory.length + ')'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Fila 2: Tarjetas de Métricas de Facturación y Ganancia Neta para el período seleccionado -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    
+                    <!-- Card 1: Total Facturado -->
+                    <div class="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex items-center space-x-3 shadow-md">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                            <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block truncate" x-text="'Facturado · ' + currentPeriodLabel"></span>
+                            <p class="text-base sm:text-lg font-black text-emerald-400 font-mono truncate" x-text="formatCurrency(currentPeriodSummary.total)"></p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Ganancia NETA (Utilidad Real) -->
+                    <div class="bg-gradient-to-br from-neutral-900 via-neutral-900 to-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex items-center space-x-3 shadow-lg shadow-emerald-950/20 col-span-2 sm:col-span-1">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                            <i data-lucide="wallet" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block truncate" x-text="'Ganancia Neta · ' + currentPeriodLabel"></span>
+                                <span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" x-text="(currentPeriodSummary.margin_pct || 0) + '%'"></span>
+                            </div>
+                            <p class="text-base sm:text-lg font-black text-emerald-400 font-mono truncate" x-text="formatCurrency(currentPeriodSummary.profit || 0)"></p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Operaciones Realizadas -->
+                    <div class="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex items-center space-x-3 shadow-md">
+                        <div class="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                            <i data-lucide="receipt" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block truncate" x-text="'Operaciones · ' + currentPeriodLabel"></span>
+                            <p class="text-base sm:text-lg font-black text-white truncate" x-text="(currentPeriodSummary.count || 0) + ' ventas'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Unidades Vendidas -->
+                    <div class="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex items-center space-x-3 shadow-md">
+                        <div class="w-10 h-10 rounded-lg bg-brand-gold/10 border border-brand-gold/30 flex items-center justify-center text-brand-gold flex-shrink-0">
+                            <i data-lucide="package-check" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block truncate" x-text="'Unidades · ' + currentPeriodLabel"></span>
+                            <p class="text-base sm:text-lg font-black text-brand-gold truncate" x-text="(currentPeriodSummary.items || 0) + ' un.'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Card 5: Ticket Promedio -->
+                    <div class="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex items-center space-x-3 shadow-md">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 flex-shrink-0">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block truncate">Ticket Promedio</span>
+                            <p class="text-base sm:text-lg font-black text-purple-300 font-mono truncate" x-text="formatCurrency(currentPeriodSummary.average || 0)"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- SUB-VISTA 1: PUNTO DE VENTA (POS) -->
+            <!-- ========================================== -->
+            <div x-show="salesSubView === 'pos'" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- COLUMNA IZQUIERDA: CATÁLOGO Y BÚSQUEDA DE PRODUCTOS (7 COLS) -->
+                <div class="lg:col-span-7 space-y-4">
+                    
+                    <!-- Barra de Búsqueda y Filtros de Productos para la Venta -->
+                    <div class="bg-neutral-950 p-4 rounded-2xl border border-neutral-800 shadow-xl space-y-3">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            
+                            <!-- Buscador en tiempo real -->
+                            <div class="relative flex-1">
+                                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                                <input 
+                                    type="text" 
+                                    x-model="salesSearchQuery" 
+                                    placeholder="Buscar bebida por nombre, categoría o medida..." 
+                                    class="w-full bg-neutral-900 border border-neutral-700 text-slate-100 text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                            </div>
+
+                            <!-- Selector de Categoría -->
+                            <select 
+                                x-model="salesCategory" 
+                                class="bg-neutral-900 border border-neutral-700 text-slate-200 text-xs font-semibold rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+                            >
+                                <option value="all">Todas las Categorías</option>
+                                <template x-for="cat in categories" :key="cat.id">
+                                    <option :value="cat.id" x-text="cat.name"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Selector Global de Precio: Minorista vs Mayorista -->
+                        <div class="flex items-center justify-between pt-2 border-t border-neutral-900">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-400">Modalidad de Venta:</span>
+                                <div class="bg-neutral-900 p-1 rounded-xl border border-neutral-800 flex items-center space-x-1">
+                                    <button 
+                                        @click="setAllCartPriceType('minorista')"
+                                        :class="salesPriceType === 'minorista' ? 'bg-sky-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                                        class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 transition-all"
+                                    >
+                                        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                        <span>Precio Minorista</span>
+                                    </button>
+                                    <button 
+                                        @click="setAllCartPriceType('mayorista')"
+                                        :class="salesPriceType === 'mayorista' ? 'bg-brand-gold text-black font-black shadow' : 'text-slate-400 hover:text-white'"
+                                        class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 transition-all"
+                                    >
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                        <span>Precio Mayorista</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <span class="text-[11px] text-slate-400 font-medium" x-text="salesFilteredProducts.length + ' productos disponibles'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Lista / Grilla de Productos para Agregar al Carrito -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[680px] overflow-y-auto pr-1">
+                        <template x-for="prod in salesFilteredProducts" :key="prod.id">
+                            <div class="bg-neutral-950 border border-neutral-800 hover:border-neutral-700 rounded-xl p-3 flex flex-col justify-between space-y-3 transition-all shadow-md group">
+                                <div class="flex items-start space-x-3">
+                                    
+                                    <!-- Imagen del Producto -->
+                                    <div class="w-14 h-14 bg-neutral-900 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-neutral-800">
+                                        <template x-if="prod.image_path">
+                                            <img :src="'/' + prod.image_path" :alt="prod.name" class="w-full h-full object-contain p-1" loading="lazy">
+                                        </template>
+                                        <template x-if="!prod.image_path">
+                                            <i data-lucide="wine" class="w-6 h-6 text-neutral-700"></i>
+                                        </template>
+                                    </div>
+
+                                    <!-- Datos del Producto -->
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider block truncate" x-text="prod.category_name"></span>
+                                        <h4 class="text-xs sm:text-sm font-extrabold text-white leading-tight line-clamp-2" x-text="prod.name"></h4>
+                                        <p class="text-[11px] text-slate-400 mt-0.5" x-text="prod.presentation || 'Estándar'"></p>
+                                    </div>
+                                </div>
+
+                                <!-- Precios y Stock -->
+                                <div class="pt-2 border-t border-neutral-900 flex items-center justify-between">
+                                    <div>
+                                        <!-- Precio según modalidad -->
+                                        <div class="flex items-baseline space-x-1">
+                                            <span class="text-sm font-black text-emerald-400" x-text="formatCurrency(salesPriceType === 'mayorista' ? prod.price_mayorista : prod.price_minorista)"></span>
+                                            <span class="text-[9px] uppercase font-bold text-slate-400" x-text="salesPriceType === 'mayorista' ? 'Mayor.' : 'Minor.'"></span>
+                                        </div>
+                                        
+                                        <!-- Stock Disponible -->
+                                        <div class="mt-0.5">
+                                            <span 
+                                                x-show="prod.stock > 5" 
+                                                class="text-[10px] font-bold text-emerald-400" 
+                                                x-text="'Stock: ' + prod.stock"
+                                            ></span>
+                                            <span 
+                                                x-show="prod.stock > 0 && prod.stock <= 5" 
+                                                class="text-[10px] font-black text-amber-400 animate-pulse" 
+                                                x-text="'¡Últimas ' + prod.stock + '!'"
+                                            ></span>
+                                            <span 
+                                                x-show="prod.stock <= 0" 
+                                                class="text-[10px] font-black text-rose-500 uppercase tracking-wide"
+                                            >
+                                                Agotado
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Botón Agregar -->
+                                    <button 
+                                        @click="addToCart(prod)"
+                                        :disabled="prod.stock <= 0"
+                                        :class="prod.stock <= 0 ? 'opacity-40 cursor-not-allowed bg-neutral-900 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg active:scale-95'"
+                                        class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all"
+                                        title="Agregar a la venta actual"
+                                    >
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                        <span>Agregar</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                </div>
+
+                <!-- COLUMNA DERECHA: TICKET DE VENTA ACTUAL (5 COLS) -->
+                <div class="lg:col-span-5 bg-neutral-950 rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden flex flex-col sticky top-24">
+                    
+                    <!-- Cabecera del Ticket -->
+                    <div class="bg-neutral-900/80 p-4 border-b border-neutral-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                    <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-extrabold text-white">Ticket de Venta Actual</h3>
+                                    <p class="text-[10px] text-slate-400">Resta stock automáticamente</p>
+                                </div>
+                            </div>
+                            <button 
+                                @click="clearCart()" 
+                                x-show="cart.length > 0"
+                                class="text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+                            >
+                                Limpiar todo
+                            </button>
+                        </div>
+
+                        <!-- Configuración de Venta: Vendedor y Medio de Pago -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-neutral-800">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    👤 Vendedor:
+                                </label>
+                                <input 
+                                    type="text" 
+                                    x-model="sellerName" 
+                                    @input="localStorage.setItem('pos_seller_name', sellerName)"
+                                    placeholder="Nombre del vendedor" 
+                                    class="w-full bg-black border border-neutral-700 text-xs font-bold text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-gold"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    💳 Medio de Pago:
+                                </label>
+                                <select 
+                                    x-model="paymentMethod" 
+                                    class="w-full bg-black border border-neutral-700 text-xs font-bold text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-gold"
+                                >
+                                    <option value="Efectivo">💵 Efectivo (Sin recargo)</option>
+                                    <option value="Transferencia alias mercadopago / alias bancaria">🏦 Transferencia alias mercadopago / alias bancaria</option>
+                                    <option value="QR mercadopago">📱 QR mercadopago (+1%)</option>
+                                    <option value="Tarjeta de Débito">💳 Tarjeta de Débito (+2%)</option>
+                                    <option value="Tarjeta de Crédito">💳 Tarjeta de Crédito (+7%)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Ítems en el Carrito -->
+                    <div class="p-3 space-y-2.5 max-h-[380px] overflow-y-auto flex-1">
+                        
+                        <!-- Si el carrito está vacío -->
+                        <template x-if="cart.length === 0">
+                            <div class="text-center py-12 px-4 space-y-3">
+                                <div class="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center mx-auto text-neutral-600">
+                                    <i data-lucide="shopping-bag" class="w-8 h-8"></i>
+                                </div>
+                                <p class="text-sm font-bold text-slate-300">El ticket de venta está vacío</p>
+                                <p class="text-xs text-slate-400 max-w-xs mx-auto">Selecciona productos del catálogo a la izquierda para agregarlos al ticket.</p>
+                            </div>
+                        </template>
+
+                        <!-- Ítems del Ticket -->
+                        <template x-for="(item, idx) in cart" :key="item.product_id">
+                            <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 space-y-2">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1 min-w-0">
+                                        <h5 class="text-xs font-black text-white truncate" x-text="item.name"></h5>
+                                        <p class="text-[10px] text-slate-400" x-text="item.presentation"></p>
+                                        <!-- Precio unitario destacado -->
+                                        <p class="text-[11px] font-bold text-emerald-300 mt-0.5">
+                                            <span class="text-slate-400 font-normal">c/u:</span>
+                                            <span x-text="formatCurrency(item.unit_price)"></span>
+                                        </p>
+                                    </div>
+                                    <button @click="removeFromCart(idx)" class="text-slate-400 hover:text-rose-400 p-1 ml-1" title="Quitar producto">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-1.5 border-t border-neutral-800/80">
+                                    
+                                    <!-- Selector de Precio: Minorista vs Mayorista para este ítem -->
+                                    <button 
+                                        @click="toggleCartItemPriceType(idx)"
+                                        :class="item.price_type === 'mayorista' ? 'bg-brand-gold/15 text-brand-gold border-brand-gold/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'"
+                                        class="border px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center space-x-1"
+                                        title="Haz clic para alternar entre precio mayorista y minorista"
+                                    >
+                                        <span x-text="item.price_type === 'mayorista' ? 'Mayorista' : 'Minorista'"></span>
+                                        <i data-lucide="arrow-left-right" class="w-2.5 h-2.5 opacity-60"></i>
+                                    </button>
+
+                                    <!-- Selector de Cantidad -->
+                                    <div class="flex items-center space-x-1 bg-black rounded-lg border border-neutral-800 p-0.5">
+                                        <button @click="updateCartQty(idx, -1)" class="w-6 h-6 rounded bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center font-bold text-xs">
+                                            -
+                                        </button>
+                                        <input 
+                                            type="number" 
+                                            :value="item.quantity" 
+                                            @change="setCartItemQty(idx, $event.target.value)"
+                                            min="1" 
+                                            :max="item.stock"
+                                            class="w-10 bg-transparent text-center text-xs font-black text-white focus:outline-none"
+                                        >
+                                        <button @click="updateCartQty(idx, 1)" class="w-6 h-6 rounded bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center font-bold text-xs">
+                                            +
+                                        </button>
+                                    </div>
+
+                                    <!-- Subtotal del ítem -->
+                                    <div class="text-right">
+                                        <span class="text-sm font-black text-emerald-400 block" x-text="formatCurrency(item.subtotal)"></span>
+                                        <span class="text-[9px] text-slate-500 block" x-text="item.quantity + ' × ' + formatCurrency(item.unit_price)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+
+                    </div>
+
+                    <!-- Pie del Ticket: Resumen y Confirmación -->
+                    <div class="bg-neutral-900 p-4 border-t border-neutral-800 space-y-3">
+                        
+                        <!-- Notas opcionales -->
+                        <div>
+                            <input 
+                                type="text" 
+                                x-model="saleNotes" 
+                                placeholder="Notas opcionales (ej: Cliente Pedro, Mesa 3...)"
+                                class="w-full bg-black border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-neutral-600"
+                            >
+                        </div>
+
+                        <!-- Resumen Total -->
+                        <div class="bg-black rounded-xl border border-neutral-800 p-3 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400">Productos distintos:</span>
+                                <span class="font-bold text-white" x-text="cart.length + ' ítem(s)'"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400">Total de unidades:</span>
+                                <span class="font-bold text-white" x-text="cartTotalItems + ' unidad(es)'"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs pt-1 border-t border-neutral-800/80">
+                                <span class="text-slate-400">Subtotal productos:</span>
+                                <span class="font-mono font-bold text-slate-200" x-text="formatCurrency(cartSubtotal)"></span>
+                            </div>
+                            <div x-show="paymentSurchargePct > 0" class="flex items-center justify-between text-xs bg-amber-950/30 border border-amber-800/40 rounded-lg px-2.5 py-1.5 text-amber-300">
+                                <span class="flex items-center space-x-1">
+                                    <i data-lucide="percent" class="w-3.5 h-3.5"></i>
+                                    <span>Recargo <span x-text="paymentMethod"></span> (<span x-text="paymentSurchargePct + '%'"></span>):</span>
+                                </span>
+                                <span class="font-mono font-black" x-text="'+' + formatCurrency(cartSurchargeAmount)"></span>
+                            </div>
+                            <div class="flex items-baseline justify-between pt-2 border-t border-neutral-800">
+                                <div>
+                                    <span class="text-sm font-black text-slate-200 block">TOTAL A COBRAR</span>
+                                    <span x-show="paymentSurchargePct > 0" class="text-[10px] text-amber-400 font-semibold" x-text="'Incluye recargo del ' + paymentSurchargePct + '%'"></span>
+                                </div>
+                                <span class="text-2xl sm:text-3xl font-black text-brand-gold tracking-tight" x-text="formatCurrency(cartTotal)"></span>
+                            </div>
+                        </div>
+
+                        <!-- Botón de Cobro -->
+                        <button 
+                            @click="submitSale()" 
+                            :disabled="cart.length === 0 || isSubmittingSale"
+                            :class="cart.length === 0 ? 'opacity-40 cursor-not-allowed bg-neutral-800 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-950/50 active:scale-[0.98]'"
+                            class="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase flex items-center justify-center space-x-2 transition-all"
+                        >
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span x-text="isSubmittingSale ? 'Procesando venta...' : 'Confirmar Venta y Restar Stock'"></span>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ========================================== -->
+            <!-- SUB-VISTA 2: HISTORIAL DE VENTAS -->
+            <!-- ========================================== -->
+            <div x-show="salesSubView === 'history'" class="bg-neutral-950 rounded-2xl border border-neutral-800 shadow-xl overflow-hidden space-y-4 p-4 sm:p-6">
+                
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+                    <div>
+                        <h3 class="text-base sm:text-lg font-black text-white flex items-center space-x-2">
+                            <i data-lucide="receipt" class="w-5 h-5 text-brand-gold"></i>
+                            <span>Registro Histórico de Ventas</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Consulta y filtra ventas por fecha o vendedor, con detalle de productos y stock descontado</p>
+                    </div>
+
+                    <button 
+                        @click="fetchSales(); fetchSalesSummary(salesDateFilter || null)"
+                        class="bg-neutral-900 hover:bg-neutral-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-neutral-700"
+                    >
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Actualizar</span>
+                    </button>
+                </div>
+
+                <!-- Barra de Filtros: Selección por Fecha y Vendedor -->
+                <div class="bg-neutral-900/80 p-3.5 rounded-xl border border-neutral-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    
+                    <!-- Selector de Fecha y botones rápidos -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                            <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+                            <span>Seleccionar Fecha:</span>
+                        </span>
+                        
+                        <input 
+                            type="date" 
+                            x-model="salesDateFilter" 
+                            @change="fetchSales()"
+                            class="bg-black border border-neutral-700 text-xs font-bold text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-gold cursor-pointer"
+                        >
+
+                        <button 
+                            type="button"
+                            @click="salesDateFilter = todayDateString(); fetchSales()"
+                            :class="salesDateFilter === todayDateString() ? 'bg-emerald-600 text-white font-bold shadow' : 'bg-neutral-800 text-slate-300 hover:text-white'"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border border-neutral-700"
+                        >
+                            📅 Hoy
+                        </button>
+                        <button 
+                            type="button"
+                            @click="salesDateFilter = yesterdayDateString(); fetchSales()"
+                            :class="salesDateFilter === yesterdayDateString() ? 'bg-emerald-600 text-white font-bold shadow' : 'bg-neutral-800 text-slate-300 hover:text-white'"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border border-neutral-700"
+                        >
+                            📅 Ayer
+                        </button>
+                        <button 
+                            type="button"
+                            x-show="salesDateFilter"
+                            @click="salesDateFilter = ''; fetchSales()"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800 transition-all flex items-center space-x-1"
+                        >
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            <span>Ver Todas las Fechas</span>
+                        </button>
+                    </div>
+
+                    <!-- Filtro por Vendedor -->
+                    <div class="flex items-center space-x-2">
+                        <div class="relative flex-1 md:w-56">
+                            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+                            <input 
+                                type="text" 
+                                x-model="salesSellerFilter" 
+                                @input.debounce.300ms="fetchSales()"
+                                placeholder="Buscar por vendedor..." 
+                                class="w-full bg-black border border-neutral-700 text-xs text-white rounded-lg pl-8 pr-2.5 py-1.5 focus:outline-none focus:border-brand-gold"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta Resumen del Día Seleccionado (visible cuando se filtra por fecha) -->
+                <div x-show="salesDateFilter" class="bg-gradient-to-r from-emerald-950/70 via-neutral-900 to-neutral-900 border border-emerald-700/60 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg" x-cloak>
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                            <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs uppercase font-black text-emerald-400 tracking-wider">Resumen de Fecha Seleccionada:</span>
+                                <span class="bg-brand-gold text-black font-black text-xs px-2 py-0.5 rounded" x-text="formatDateHuman(salesDateFilter)"></span>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-0.5">
+                                Mostrando <strong class="text-white" x-text="salesHistory.length"></strong> ventas registradas este día (<span x-text="filteredSalesItems"></span> unidades vendidas en total)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 self-end sm:self-auto flex-wrap gap-2">
+                        <div class="bg-black/60 border border-neutral-800 rounded-lg px-3 py-1.5 text-right">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">Total Facturado Fecha:</span>
+                            <span class="text-base sm:text-lg font-black text-emerald-400 font-mono" x-text="formatCurrency(filteredSalesTotal)"></span>
+                        </div>
+                        <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-right">
+                            <span class="text-[10px] uppercase font-bold text-emerald-400 block">Ganancia Neta Fecha:</span>
+                            <span class="text-base sm:text-lg font-black text-emerald-300 font-mono" x-text="formatCurrency(filteredSalesProfit)"></span>
+                        </div>
+                        <button 
+                            @click="salesDateFilter = ''; fetchSales()" 
+                            class="text-xs text-slate-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 px-3 py-2 rounded-lg font-semibold transition-all"
+                            title="Quitar filtro de fecha y ver histórico completo"
+                        >
+                            ✕ Quitar filtro
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de Ventas -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-neutral-900/90 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-neutral-800">
+                            <tr>
+                                <th class="px-4 py-3">ID / Ticket</th>
+                                <th class="px-4 py-3">Fecha y Hora</th>
+                                <th class="px-4 py-3">Vendedor</th>
+                                <th class="px-4 py-3">Modalidad</th>
+                                <th class="px-4 py-3">Medio de Pago</th>
+                                <th class="px-4 py-3 text-center">Artículos</th>
+                                <th class="px-4 py-3 text-right">Total Cobrado</th>
+                                <th class="px-4 py-3 text-center">Estado</th>
+                                <th class="px-4 py-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-900 font-medium">
+                            <template x-if="salesHistory.length === 0">
+                                <tr>
+                                    <td colspan="9" class="text-center py-10 text-slate-400">
+                                        <div class="space-y-1">
+                                            <p class="font-bold text-sm text-slate-300">No se encontraron ventas para los filtros seleccionados.</p>
+                                            <p class="text-xs text-slate-500" x-show="salesDateFilter">Intenta seleccionando otra fecha o haz clic en "Ver Todas las Fechas".</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <template x-for="sale in salesHistory" :key="sale.id">
+                                <tr class="hover:bg-neutral-900/60 transition-colors">
+                                    <td class="px-4 py-3 font-mono font-black text-brand-gold" x-text="'#' + String(sale.id).padStart(4, '0')"></td>
+                                    <td class="px-4 py-3 text-slate-300 whitespace-nowrap" x-text="sale.created_at_local || sale.created_at"></td>
+                                    <td class="px-4 py-3 font-bold text-white whitespace-nowrap">
+                                        <span class="inline-flex items-center space-x-1">
+                                            <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+                                            <span x-text="sale.seller_name"></span>
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span 
+                                            :class="sale.price_type === 'mayorista' ? 'bg-brand-gold/15 text-brand-gold border-brand-gold/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'"
+                                            class="border px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider"
+                                            x-text="sale.price_type"
+                                        ></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-300">
+                                        <span class="font-medium text-white block truncate max-w-[180px]" x-text="sale.payment_method"></span>
+                                        <span x-show="sale.surcharge_amount > 0" class="text-[10px] text-amber-400 font-bold block" x-text="'+' + (sale.surcharge_pct || 0) + '% (' + formatCurrency(sale.surcharge_amount) + ')'"></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center font-bold text-white" x-text="sale.total_items + ' un.'"></td>
+                                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                                        <span class="font-black text-sm text-emerald-400 font-mono block" x-text="formatCurrency(sale.total_amount)"></span>
+                                        <span x-show="sale.total_profit !== undefined && sale.status === 'completed'" class="text-[10px] text-emerald-400 font-bold block" x-text="'Utilidad: ' + formatCurrency(sale.total_profit)"></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span 
+                                            x-show="sale.status === 'completed'"
+                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800"
+                                        >
+                                            ● Completada
+                                        </span>
+                                        <span 
+                                            x-show="sale.status === 'cancelled'"
+                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-950 text-rose-400 border border-rose-800"
+                                        >
+                                            ● Anulada
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center space-x-1.5">
+                                            <button 
+                                                @click="viewSaleDetail(sale.id)"
+                                                class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-neutral-700"
+                                                title="Ver detalle completo de productos vendidos"
+                                            >
+                                                <i data-lucide="eye" class="w-3.5 h-3.5 text-brand-gold"></i>
+                                                <span>Ver Detalle</span>
+                                            </button>
+                                            <button 
+                                                x-show="sale.status === 'completed'"
+                                                @click="cancelSale(sale.id)"
+                                                class="bg-neutral-900 hover:bg-rose-950/60 text-rose-400 hover:border-rose-800 px-2 py-1 rounded-lg text-xs font-semibold flex items-center border border-neutral-700 transition-colors"
+                                                title="Anular venta y devolver stock"
+                                            >
+                                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ==================== MODALES ==================== -->
+
+    <!-- MODAL: REASIGNAR PRODUCTOS DE CATEGORÍA -->
+    <div x-show="showReassignModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="arrow-right-left" class="w-5 h-5 text-sky-400"></i>
+                    <span>Transferir Productos</span>
+                </h3>
+                <button @click="showReassignModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                Se moverán los <strong class="text-brand-gold" x-text="reassignData.fromCategory ? reassignData.fromCategory.product_count : 0"></strong> productos de <strong class="text-white uppercase" x-text="reassignData.fromCategory ? reassignData.fromCategory.name : ''"></strong> a una nueva categoría:
+            </p>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Nueva Categoría Destino:</label>
+                <select x-model="reassignData.targetCategoryId" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                    <template x-for="c in categories.filter(cat => reassignData.fromCategory && cat.id !== reassignData.fromCategory.id)" :key="c.id">
+                        <option :value="c.id" x-text="c.name"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                <button type="button" @click="showReassignModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+                <button type="button" @click="confirmReassignProducts()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg text-xs shadow-md">Confirmar Transferencia</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ELIMINAR CATEGORÍA CON OPCIONES -->
+    <div x-show="showDeleteCategoryModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-400"></i>
+                    <span>Eliminar Categoría</span>
+                </h3>
+                <button @click="showDeleteCategoryModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                ¿Estás seguro de que deseas eliminar la categoría <strong class="text-white uppercase" x-text="categoryToDelete ? categoryToDelete.name : ''"></strong>?
+            </p>
+
+            <!-- Opciones si tiene productos -->
+            <template x-if="categoryToDelete && categoryToDelete.product_count > 0">
+                <div class="space-y-3 bg-black p-3 rounded-xl border border-neutral-800 text-xs">
+                    <p class="font-bold text-amber-400 flex items-center space-x-1">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                        <span>Esta categoría contiene <span x-text="categoryToDelete.product_count"></span> productos:</span>
+                    </p>
+
+                    <div class="space-y-2 pt-1">
+                        <label class="flex items-start space-x-2 cursor-pointer">
+                            <input type="radio" x-model="deleteCategoryAction" value="reassign" class="mt-0.5 text-brand-gold focus:ring-brand-gold bg-neutral-900 border-neutral-700">
+                            <span class="text-slate-200">Reasignar sus productos a otra categoría (Recomendado)</span>
+                        </label>
+
+                        <div x-show="deleteCategoryAction === 'reassign'" class="pl-6 pt-1">
+                            <select x-model="deleteReassignTargetId" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white">
+                                <template x-for="c in categories.filter(cat => categoryToDelete && cat.id !== categoryToDelete.id)" :key="c.id">
+                                    <option :value="c.id" x-text="c.name"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <label class="flex items-start space-x-2 cursor-pointer pt-1">
+                            <input type="radio" x-model="deleteCategoryAction" value="delete_products" class="mt-0.5 text-rose-500 focus:ring-rose-500 bg-neutral-900 border-neutral-700">
+                            <span class="text-rose-400">Borrar también todos los productos que contiene</span>
+                        </label>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                <button type="button" @click="showDeleteCategoryModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+                <button type="button" @click="confirmDeleteCategory()" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs shadow-md">Eliminar Categoría</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO / EDITAR PRODUCTO -->
+    <div x-show="showProductModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+            <div class="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+                <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="box" class="w-5 h-5 text-brand-gold"></i>
+                    <span x-text="editingProduct.id ? 'Editar Producto' : 'Nuevo Producto'"></span>
+                </h2>
+                <button @click="showProductModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="saveProduct()" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    
+                    <!-- Imagen del Producto -->
+                    <div class="flex flex-col items-center justify-center border-2 border-dashed border-neutral-700 rounded-xl p-3 bg-black">
+                        <div class="w-28 h-28 bg-neutral-900 rounded-lg overflow-hidden flex items-center justify-center mb-2 border border-neutral-800">
+                            <template x-if="imagePreview">
+                                <img :src="imagePreview" class="w-full h-full object-contain">
+                            </template>
+                            <template x-if="!imagePreview">
+                                <span class="text-4xl opacity-50">📸</span>
+                            </template>
+                        </div>
+                        <label class="cursor-pointer bg-neutral-800 hover:bg-neutral-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-lg border border-neutral-700 transition-colors">
+                            <span>Subir Foto</span>
+                            <input type="file" @change="handleImageSelect" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- Campos principales -->
+                    <div class="md:col-span-2 space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Nombre del Producto *</label>
+                            <input type="text" x-model="editingProduct.name" required placeholder="ej: Fernet Branca, Quilmes Lata" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Categoría *</label>
+                                <select x-model="editingProduct.category_id" required class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                                    <template x-for="c in categories" :key="c.id">
+                                        <option :value="c.id" x-text="c.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Presentación / Medida</label>
+                                <input type="text" x-model="editingProduct.presentation" placeholder="ej: 750ml, 2,25l x 6u" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                            </div>
+                        </div>
+
+                        <!-- Costo de Compra y Proveedor -->
+                        <div class="grid grid-cols-2 gap-2 pt-0.5">
+                            <div>
+                                <label class="block text-xs font-bold text-sky-400 mb-1">Precio Costo Compra ($)</label>
+                                <input type="number" step="any" x-model="editingProduct.cost_price" placeholder="ej: 2083.33" class="w-full bg-black border border-sky-900/60 rounded-lg px-3 py-2 text-sm font-bold text-sky-300 focus:outline-none focus:border-sky-500">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Proveedor Habitual</label>
+                                <input type="text" x-model="editingProduct.supplier" placeholder="ej: MA Distribución, Bebidas NB..." class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                            </div>
+                        </div>
+
+                        <!-- Precios y Stock -->
+                        <div class="grid grid-cols-3 gap-2 pt-1">
+                            <div>
+                                <label class="block text-xs font-bold text-brand-red mb-1">Precio Minorista ($)</label>
+                                <input type="number" step="any" x-model="editingProduct.price_minorista" class="w-full bg-black border border-red-900/60 rounded-lg px-3 py-2 text-sm font-bold text-red-400 focus:outline-none focus:border-brand-red">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-brand-gold mb-1">Precio Mayorista ($)</label>
+                                <input type="number" step="any" x-model="editingProduct.price_mayorista" class="w-full bg-black border border-amber-900/60 rounded-lg px-3 py-2 text-sm font-bold text-amber-400 focus:outline-none focus:border-brand-gold">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-400 mb-1">Stock Disponible</label>
+                                <input type="number" x-model="editingProduct.stock" placeholder="0 = Agotado" class="w-full bg-black border border-emerald-900/60 rounded-lg px-3 py-2 text-sm font-bold text-emerald-400 focus:outline-none focus:border-emerald-500">
+                            </div>
+                        </div>
+
+                        <!-- Panel de Utilidad y Margen en Tiempo Real -->
+                        <template x-if="editingProduct.cost_price > 0">
+                            <div class="bg-neutral-950 p-3 rounded-xl border border-neutral-800 grid grid-cols-2 gap-3 text-xs">
+                                <div class="flex flex-col">
+                                    <span class="text-slate-400 text-[11px] font-semibold">Ganancia Neta Minorista:</span>
+                                    <div class="flex items-baseline space-x-1.5 mt-0.5">
+                                        <span class="font-extrabold text-sm font-mono" :class="getProductProfit(editingProduct.price_minorista, editingProduct.cost_price).isNegative ? 'text-rose-400' : 'text-emerald-400'" x-text="(getProductProfit(editingProduct.price_minorista, editingProduct.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(editingProduct.price_minorista, editingProduct.cost_price).profit)"></span>
+                                        <span class="text-[10px] font-bold px-1.5 py-0.2 rounded" :class="getProductProfit(editingProduct.price_minorista, editingProduct.cost_price).isNegative ? 'bg-rose-950 text-rose-300' : 'bg-emerald-950 text-emerald-300'" x-text="getProductProfit(editingProduct.price_minorista, editingProduct.cost_price).margin + '% margen'"></span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-slate-400 text-[11px] font-semibold">Ganancia Neta Mayorista:</span>
+                                    <div class="flex items-baseline space-x-1.5 mt-0.5">
+                                        <span class="font-extrabold text-sm font-mono" :class="getProductProfit(editingProduct.price_mayorista, editingProduct.cost_price).isNegative ? 'text-rose-400' : 'text-amber-400'" x-text="(getProductProfit(editingProduct.price_mayorista, editingProduct.cost_price).isNegative ? '' : '+') + formatMoney(getProductProfit(editingProduct.price_mayorista, editingProduct.cost_price).profit)"></span>
+                                        <span class="text-[10px] font-bold px-1.5 py-0.2 rounded" :class="getProductProfit(editingProduct.price_mayorista, editingProduct.cost_price).isNegative ? 'bg-rose-950 text-rose-300' : 'bg-amber-950 text-amber-300'" x-text="getProductProfit(editingProduct.price_mayorista, editingProduct.cost_price).margin + '% margen'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Checkbox activo -->
+                <div class="flex items-center space-x-2 pt-1">
+                    <input type="checkbox" id="p_active" x-model="editingProduct.is_active" :checked="editingProduct.is_active == 1" class="w-4 h-4 rounded text-brand-gold focus:ring-brand-gold bg-black border-neutral-700">
+                    <label for="p_active" class="text-xs text-slate-300 font-semibold cursor-pointer">Mostrar en catálogo (si el stock es 0, saldrá como AGOTADO)</label>
+                </div>
+
+                <!-- Botones de Guardar -->
+                <div class="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                    <button type="button" @click="showProductModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 bg-brand-gold hover:bg-brand-goldDark text-slate-950 font-bold rounded-lg text-xs tracking-wide shadow-md">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIGURACIÓN GENERAL, DATOS DEL NEGOCIO Y BASE DE DATOS -->
+    <div x-show="showSettingsModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+            <div class="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+                <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-brand-gold"></i>
+                    <span>Configuración del Negocio y PDF</span>
+                </h2>
+                <button @click="showSettingsModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Tabs de configuración -->
+            <div class="flex border-b border-neutral-800 bg-neutral-950 px-6 space-x-4 overflow-x-auto text-xs font-bold">
+                <button @click="settingsTab = 'textos'" :class="settingsTab === 'textos' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Textos y Portada</button>
+                <button @click="settingsTab = 'contacto'" :class="settingsTab === 'contacto' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Contacto y Pedidos</button>
+                <button @click="settingsTab = 'logo'" :class="settingsTab === 'logo' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Logo Oficial</button>
+                <button @click="settingsTab = 'mantenimiento'" :class="settingsTab === 'mantenimiento' ? 'text-rose-400 border-b-2 border-rose-500 py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Base de Datos</button>
+            </div>
+
+            <form @submit.prevent="saveSettings()" class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                
+                <!-- TAB 1: TEXTOS -->
+                <div x-show="settingsTab === 'textos'" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Nombre de la Empresa / Local</label>
+                        <input type="text" x-model="settings.business_name" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Subtítulo Catálogo Minorista</label>
+                            <input type="text" x-model="settings.header_subtitle_minorista" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Subtítulo Catálogo Mayorista</label>
+                            <input type="text" x-model="settings.header_subtitle_mayorista" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Frase del Banner Rojo (Subcabecera)</label>
+                        <input type="text" x-model="settings.banner_phrase" placeholder="ej: PARA TU NEGOCIO Y PARA VOS" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Texto Legal / Disclaimer (Pie de página)</label>
+                        <textarea x-model="settings.disclaimer" rows="2" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold"></textarea>
+                    </div>
+                </div>
+
+                <!-- TAB 2: CONTACTO -->
+                <div x-show="settingsTab === 'contacto'" class="space-y-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">WhatsApp de Pedidos</label>
+                            <input type="text" x-model="settings.whatsapp_number" placeholder="ej: +54 9 11 2525-2525" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Instagram</label>
+                            <input type="text" x-model="settings.instagram" placeholder="ej: @bebidas25demayo" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Dirección / Local Físico</label>
+                        <input type="text" x-model="settings.address" placeholder="ej: Av. 25 de Mayo 1234, Buenos Aires" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Horarios de Atención (Portada)</label>
+                            <input type="text" x-model="settings.cover_business_hours" placeholder="ej: Lunes a Sábados de 10:00 a 22:00 hs" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Información de Envíos (Portada)</label>
+                            <input type="text" x-model="settings.cover_delivery_info" placeholder="ej: Envíos a domicilio y entregas en el día" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: LOGO -->
+                <div x-show="settingsTab === 'logo'" class="space-y-4">
+                    <div class="flex items-center space-x-6 p-4 bg-black rounded-xl border border-neutral-800">
+                        <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-brand-gold bg-black flex items-center justify-center flex-shrink-0 shadow-lg">
+                            <template x-if="settings.logo_path">
+                                <img :src="'/' + settings.logo_path + '?t=' + Date.now()" class="w-full h-full object-cover">
+                            </template>
+                            <template x-if="!settings.logo_path">
+                                <span class="text-sm font-bold text-brand-gold">Sin Logo</span>
+                            </template>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-white mb-1">Logo Oficial del Negocio</h4>
+                            <p class="text-xs text-slate-400 mb-3">Se imprime en la portada, índice y encabezados del PDF.</p>
+                            <label class="cursor-pointer bg-brand-gold hover:bg-brand-goldDark text-slate-950 text-xs font-bold px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-1.5 shadow-md">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                <span>Cambiar Logo</span>
+                                <input type="file" @change="uploadLogo" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: MANTENIMIENTO / VACIAR PRODUCTOS -->
+                <div x-show="settingsTab === 'mantenimiento'" class="space-y-4">
+                    <div class="p-4 bg-rose-950/30 border border-rose-900/50 rounded-xl space-y-3">
+                        <h4 class="text-sm font-bold text-rose-400 flex items-center space-x-2">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+                            <span>Zona de Peligro: Vaciar Productos</span>
+                        </h4>
+                        <p class="text-xs text-slate-300">
+                            Esta acción eliminará de forma permanente todos los productos de tu catálogo (las categorías se mantendrán intactas). Requiere doble confirmación.
+                        </p>
+                        <button type="button" @click="openClearDatabaseModal()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <span>Vaciar Productos del Inventario</span>
+                        </button>
+                    </div>
+
+                    <div class="p-4 bg-neutral-950 border border-neutral-800 rounded-xl space-y-3">
+                        <h4 class="text-sm font-bold text-emerald-400 flex items-center space-x-2">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4 text-emerald-400"></i>
+                            <span>Restaurar Productos de Ejemplo Iniciales</span>
+                        </h4>
+                        <p class="text-xs text-slate-400">
+                            Vuelve a cargar los 95 productos y 11 categorías reales extraídas del catálogo original de Bebidas 25 de Mayo.
+                        </p>
+                        <button type="button" @click="restoreSampleData()" class="bg-neutral-800 hover:bg-neutral-700 text-slate-200 font-bold text-xs px-4 py-2 rounded-lg flex items-center space-x-1.5 border border-neutral-700">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
+                            <span>Restaurar 95 Productos de Ejemplo</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Botones Guardar Configuración -->
+                <div class="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                    <button type="button" @click="showSettingsModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cerrar</button>
+                    <button type="submit" class="px-5 py-2 bg-brand-gold hover:bg-brand-goldDark text-slate-950 font-bold rounded-lg text-xs shadow-md">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: DOBLE CONFIRMACIÓN PARA VACIAR PRODUCTOS -->
+    <div x-show="showClearDbModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border-2 border-rose-600 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+                <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+            </div>
+
+            <div class="text-center space-y-2">
+                <h3 class="text-lg font-extrabold text-white">¿Vaciar los Productos del Inventario?</h3>
+                <p class="text-xs text-slate-300">
+                    Se borrarán <strong class="text-rose-400">TODOS los productos</strong> de la base de datos (tus categorías permanecerán guardadas). Esta acción no se puede deshacer.
+                </p>
+                <p class="text-xs text-slate-400">
+                    Para confirmar, escribe la palabra <strong class="text-white bg-black px-2 py-0.5 rounded border border-neutral-700">BORRAR</strong> a continuación:
+                </p>
+            </div>
+
+            <div>
+                <input 
+                    type="text" 
+                    x-model="clearConfirmationText" 
+                    placeholder="Escribe BORRAR aquí"
+                    class="w-full bg-black border-2 border-neutral-700 focus:border-rose-500 rounded-lg px-3 py-2 text-center text-sm font-bold text-white uppercase tracking-widest focus:outline-none"
+                >
+            </div>
+
+            <div class="flex items-center justify-center space-x-3 pt-2">
+                <button type="button" @click="showClearDbModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+                <button 
+                    type="button" 
+                    @click="confirmClearDatabase()"
+                    :disabled="clearConfirmationText.trim().toUpperCase() !== 'BORRAR' || isClearingDb"
+                    :class="clearConfirmationText.trim().toUpperCase() === 'BORRAR' ? 'bg-rose-600 hover:bg-rose-500 text-white cursor-pointer shadow-lg' : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'"
+                    class="px-5 py-2 font-bold rounded-lg text-xs tracking-wide transition-all"
+                >
+                    <span x-show="!isClearingDb">Sí, Borrar Todo</span>
+                    <span x-show="isClearingDb">Borrando...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: AJUSTE MASIVO DE PRECIOS (%) -->
+    <div x-show="showBulkPriceModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <div class="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+                <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+                    <span>Ajuste Masivo de Precios (%)</span>
+                </h2>
+                <button @click="showBulkPriceModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="applyBulkPriceAdjustment()" class="p-6 space-y-4">
+                <p class="text-xs text-slate-300">
+                    Aplica un aumento o descuento porcentual inmediato a todos los productos o a una categoría específica.
+                </p>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Categoría a Afectar</label>
+                    <select x-model="bulkAdjustment.category_id" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="all">⚡ Todas las Categorías (Todo el inventario)</option>
+                        <template x-for="c in categories" :key="c.id">
+                            <option :value="c.id" x-text="c.name"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Tipo de Precio</label>
+                        <select x-model="bulkAdjustment.price_type" class="w-full bg-black border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white">
+                            <option value="both">Minorista y Mayorista</option>
+                            <option value="minorista">Solo Minorista</option>
+                            <option value="mayorista">Solo Mayorista</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Porcentaje (%)</label>
+                        <div class="relative">
+                            <input type="number" step="0.5" x-model="bulkAdjustment.percentage" class="w-full bg-black border border-neutral-700 rounded-lg pl-3 pr-8 py-2 text-sm text-white font-bold">
+                            <span class="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                    <button type="button" @click="showBulkPriceModal = false" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md">Aplicar Ajuste</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: PREVISUALIZADOR DE PDF EN VIVO -->
+    <div x-show="showPdfPreviewModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-5xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="bg-neutral-950 px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="file-text" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Vista Previa PDF: <strong class="text-brand-gold uppercase" x-text="pdfPreviewType"></strong></span>
+                    </h3>
+                    <div class="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800">
+                        <button @click="exportPdf('minorista', false)" :class="pdfPreviewType === 'minorista' ? 'bg-brand-red text-white' : 'text-slate-400'" class="px-2.5 py-1 rounded text-xs font-bold">Minorista (12/pág)</button>
+                        <button @click="exportPdf('combinado', false)" :class="pdfPreviewType === 'combinado' ? 'bg-amber-600 text-white' : 'text-slate-400'" class="px-2.5 py-1 rounded text-xs font-bold">Combinado (Doble Precio)</button>
+                        <button @click="exportPdf('mayorista', false)" :class="pdfPreviewType === 'mayorista' ? 'bg-brand-gold text-slate-950' : 'text-slate-400'" class="px-2.5 py-1 rounded text-xs font-bold">Mayorista</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <a :href="pdfPreviewUrl" download class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Descargar PDF</span>
+                    </a>
+                    <button @click="showPdfPreviewModal = false" class="text-slate-400 hover:text-white p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 bg-black p-1">
+                <iframe :src="pdfPreviewUrl" class="w-full h-full rounded-b-xl border-0"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: IMPORTAR / EXPORTAR CSV EXCEL -->
+    <div x-show="showImportModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <div class="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+                <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-sky-400"></i>
+                    <span>Copia de Seguridad y Excel</span>
+                </h2>
+                <button @click="showImportModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5 text-xs text-slate-300">
+                <div class="p-4 bg-black rounded-xl border border-neutral-800 space-y-2">
+                    <h4 class="font-bold text-white flex items-center space-x-1.5">
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Exportar Inventario a Excel (.CSV)</span>
+                    </h4>
+                    <p class="text-slate-400">Descarga tu inventario completo con categorías, precios y stock.</p>
+                    <a href="/api/backup/export-csv" class="inline-flex items-center space-x-1.5 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-2 rounded-lg font-bold transition-colors">
+                        <i data-lucide="file-down" class="w-4 h-4"></i>
+                        <span>Descargar Archivo CSV</span>
+                    </a>
+                </div>
+
+                <div class="p-4 bg-black rounded-xl border border-neutral-800 space-y-2">
+                    <h4 class="font-bold text-white flex items-center space-x-1.5">
+                        <i data-lucide="upload" class="w-4 h-4 text-sky-400"></i>
+                        <span>Importar Productos desde Excel (.CSV)</span>
+                    </h4>
+                    <p class="text-slate-400">Sube un archivo CSV con columnas: Categoría, Nombre, Presentación, Precio Minorista, Precio Mayorista, Stock.</p>
+                    <label class="cursor-pointer inline-flex items-center space-x-1.5 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-bold transition-colors">
+                        <i data-lucide="file-up" class="w-4 h-4"></i>
+                        <span>Seleccionar archivo CSV</span>
+                        <input type="file" @change="importCsv" accept=".csv" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DETALLE DE VENTA -->
+    <div x-show="showSaleDetailModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="receipt" class="w-5 h-5 text-brand-gold"></i>
+                    <h3 class="text-base font-bold text-white">
+                        Detalle de Venta <span class="text-brand-gold font-mono" x-text="selectedSaleDetail ? '#' + String(selectedSaleDetail.id).padStart(4, '0') : ''"></span>
+                    </h3>
+                    <span 
+                        x-show="selectedSaleDetail && selectedSaleDetail.status === 'completed'"
+                        class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800"
+                    >
+                        Completada
+                    </span>
+                    <span 
+                        x-show="selectedSaleDetail && selectedSaleDetail.status === 'cancelled'"
+                        class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-950 text-rose-400 border border-rose-800"
+                    >
+                        Anulada
+                    </span>
+                </div>
+                <button @click="showSaleDetailModal = false" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Datos Generales de la Venta -->
+            <template x-if="selectedSaleDetail">
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-neutral-950 p-3.5 rounded-xl border border-neutral-800 text-xs">
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Vendedor:</span>
+                            <span class="font-bold text-white text-sm" x-text="selectedSaleDetail.seller_name"></span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Fecha / Hora:</span>
+                            <span class="font-semibold text-slate-300 text-xs" x-text="selectedSaleDetail.created_at_local || selectedSaleDetail.created_at"></span>
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[10px] uppercase font-bold mb-1">Medio de Pago:</label>
+                            <select 
+                                x-model="selectedSaleDetail.payment_method" 
+                                @change="onDetailPaymentMethodChange()"
+                                :disabled="selectedSaleDetail.status === 'cancelled'"
+                                class="w-full bg-black border border-neutral-700 text-white rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-brand-gold cursor-pointer"
+                            >
+                                <option value="Efectivo">Efectivo (0%)</option>
+                                <option value="Transferencia alias mercadopago / alias bancaria">Transferencia MP / Bancaria (0%)</option>
+                                <option value="QR mercadopago">QR mercadopago (+1%)</option>
+                                <option value="Tarjeta de Débito">Tarjeta de Débito (+2%)</option>
+                                <option value="Tarjeta de Crédito">Tarjeta de Crédito (+7%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[10px] uppercase font-bold mb-1">Modalidad:</label>
+                            <select 
+                                x-model="selectedSaleDetail.price_type" 
+                                @change="onDetailPriceTypeChange()"
+                                :disabled="selectedSaleDetail.status === 'cancelled'"
+                                class="w-full bg-black border border-neutral-700 text-brand-gold rounded-lg px-2 py-1 text-xs font-bold uppercase focus:outline-none focus:border-brand-gold cursor-pointer"
+                            >
+                                <option value="minorista">Minorista</option>
+                                <option value="mayorista">Mayorista</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Productos Vendidos con Costo y Utilidad -->
+                    <div class="border border-neutral-800 rounded-xl overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-black text-slate-400 uppercase text-[10px] font-black border-b border-neutral-800">
+                                <tr>
+                                    <th class="px-3 py-2.5">Producto</th>
+                                    <th class="px-2 py-2.5 text-center">Tipo</th>
+                                    <th class="px-2 py-2.5 text-right">Costo Unit.</th>
+                                    <th class="px-2 py-2.5 text-right">Precio Venta</th>
+                                    <th class="px-2 py-2.5 text-center">Cant.</th>
+                                    <th class="px-2 py-2.5 text-right">Utilidad Unit.</th>
+                                    <th class="px-3 py-2.5 text-right">Subtotal</th>
+                                    <th class="px-3 py-2.5 text-right">Ganancia Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-neutral-800/80 bg-neutral-950 font-medium">
+                                <template x-for="item in (selectedSaleDetail.items || [])" :key="item.id">
+                                    <tr class="hover:bg-neutral-900/40">
+                                        <td class="px-3 py-2">
+                                            <span class="font-bold text-white block" x-text="item.product_name"></span>
+                                            <span class="text-[10px] text-slate-400" x-text="item.presentation"></span>
+                                        </td>
+                                        <td class="px-2 py-2 text-center">
+                                            <span 
+                                                :class="item.price_type === 'mayorista' ? 'text-brand-gold border-brand-gold/40' : 'text-sky-300 border-sky-500/40'"
+                                                class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-neutral-900 border" 
+                                                x-text="item.price_type"
+                                            ></span>
+                                        </td>
+                                        <td class="px-2 py-2 text-right font-mono text-slate-400" x-text="formatCurrency(item.cost_price || item.catalog_cost_price || 0)"></td>
+                                        <td class="px-2 py-2 text-right font-mono font-bold text-slate-200" x-text="formatCurrency(item.unit_price)"></td>
+                                        <td class="px-2 py-2 text-center font-bold text-white" x-text="item.quantity"></td>
+                                        <td class="px-2 py-2 text-right font-mono text-emerald-400 font-bold" x-text="formatCurrency(item.unit_price - (item.cost_price || item.catalog_cost_price || 0))"></td>
+                                        <td class="px-3 py-2 text-right font-mono font-bold text-slate-200" x-text="formatCurrency(item.subtotal)"></td>
+                                        <td class="px-3 py-2 text-right font-mono font-black text-emerald-400" x-text="formatCurrency(item.profit !== undefined ? item.profit : ((item.unit_price - (item.cost_price || 0)) * item.quantity))"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Resumen Financiero y Utilidad de la Venta -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Desglose de cobro -->
+                        <div class="space-y-1.5 bg-neutral-950 p-3.5 rounded-xl border border-neutral-800 text-xs">
+                            <div class="flex items-center justify-between text-slate-400">
+                                <span>Subtotal productos:</span>
+                                <span class="font-mono text-slate-200 font-semibold" x-text="formatCurrency(selectedSaleDetail.subtotal_amount || 0)"></span>
+                            </div>
+                            <div x-show="selectedSaleDetail.surcharge_amount > 0" class="flex items-center justify-between text-amber-400 font-semibold">
+                                <span x-text="'Recargo ' + selectedSaleDetail.payment_method + ' (+' + (selectedSaleDetail.surcharge_pct || 0) + '%):'"></span>
+                                <span class="font-mono" x-text="'+' + formatCurrency(selectedSaleDetail.surcharge_amount)"></span>
+                            </div>
+                            <div class="flex items-center justify-between pt-1.5 border-t border-neutral-800">
+                                <span class="text-sm font-black text-slate-200">TOTAL COBRADO:</span>
+                                <span class="text-xl font-black text-brand-gold font-mono" x-text="formatCurrency(selectedSaleDetail.total_amount)"></span>
+                            </div>
+                        </div>
+
+                        <!-- Rentabilidad / Ganancia de la Venta -->
+                        <div class="space-y-1.5 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-950 p-3.5 rounded-xl border border-emerald-800/40 text-xs">
+                            <div class="flex items-center justify-between text-slate-400">
+                                <span>Costo Mercadería:</span>
+                                <span class="font-mono text-slate-300" x-text="formatCurrency(selectedSaleDetail.total_cost || 0)"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-400">
+                                <span>Margen de Ganancia:</span>
+                                <span class="font-mono text-emerald-400 font-bold" x-text="selectedSaleDetail.total_amount > 0 ? (Math.round(((selectedSaleDetail.total_profit || 0) / selectedSaleDetail.total_amount) * 1000) / 10) + '%' : '0%'"></span>
+                            </div>
+                            <div class="flex items-center justify-between pt-1.5 border-t border-emerald-900/60">
+                                <span class="text-sm font-black text-emerald-300">GANANCIA NETA:</span>
+                                <span class="text-xl font-black text-emerald-400 font-mono" x-text="formatCurrency(selectedSaleDetail.total_profit || (selectedSaleDetail.total_amount - (selectedSaleDetail.total_cost || 0)))"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-800">
+                        <button 
+                            x-show="selectedSaleDetail.status === 'completed'"
+                            @click="cancelSale(selectedSaleDetail.id); showSaleDetailModal = false"
+                            class="bg-rose-950/80 hover:bg-rose-900 text-rose-400 hover:text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 border border-rose-800 transition-colors"
+                        >
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            <span>Anular Venta</span>
+                        </button>
+
+                        <div class="flex items-center space-x-2 ml-auto">
+                            <button 
+                                x-show="selectedSaleDetail.status === 'completed'"
+                                @click="saveSaleDetailChanges()"
+                                :disabled="isSavingSaleDetail"
+                                class="bg-brand-gold hover:bg-yellow-400 text-black px-4 py-2 rounded-lg text-xs font-black flex items-center space-x-1.5 shadow-lg active:scale-95 transition-all"
+                            >
+                                <i data-lucide="save" class="w-4 h-4"></i>
+                                <span x-text="isSavingSaleDetail ? 'Guardando...' : 'Guardar Cambios'"></span>
+                            </button>
+                            <button @click="window.print()" class="bg-neutral-800 hover:bg-neutral-700 text-slate-200 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5">
+                                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                                <span>Imprimir</span>
+                            </button>
+                            <button @click="showSaleDetailModal = false" class="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-xs font-bold">
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- MODAL: ÉXITO DE VENTA -->
+    <div x-show="showSaleSuccessModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4 text-center">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto text-emerald-400 animate-bounce">
+                <i data-lucide="check" class="w-8 h-8"></i>
+            </div>
+
+            <div class="space-y-1">
+                <h3 class="text-xl font-black text-white">¡Venta Registrada con Éxito!</h3>
+                <p class="text-xs text-slate-400">El stock ha sido descontado automáticamente del inventario.</p>
+            </div>
+
+            <template x-if="lastCompletedSale">
+                <div class="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-2 text-left text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Nro. de Ticket:</span>
+                        <span class="font-mono font-bold text-brand-gold" x-text="'#' + String(lastCompletedSale.id).padStart(4, '0')"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Vendedor:</span>
+                        <span class="font-bold text-white" x-text="lastCompletedSale.seller_name"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Medio de Pago:</span>
+                        <span class="text-slate-200" x-text="lastCompletedSale.payment_method"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Artículos Vendidos:</span>
+                        <span class="font-bold text-white" x-text="lastCompletedSale.total_items + ' un.'"></span>
+                    </div>
+                    <div x-show="lastCompletedSale.surcharge_amount > 0" class="flex justify-between text-slate-400">
+                        <span>Subtotal productos:</span>
+                        <span class="font-mono text-slate-200" x-text="formatCurrency(lastCompletedSale.subtotal_amount || (lastCompletedSale.total_amount - lastCompletedSale.surcharge_amount))"></span>
+                    </div>
+                    <div x-show="lastCompletedSale.surcharge_amount > 0" class="flex justify-between text-amber-400 font-bold">
+                        <span x-text="'Recargo (' + (lastCompletedSale.surcharge_pct || 0) + '%):'"></span>
+                        <span class="font-mono" x-text="'+' + formatCurrency(lastCompletedSale.surcharge_amount)"></span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-neutral-900 items-baseline">
+                        <span class="text-sm font-bold text-slate-300">Total Cobrado:</span>
+                        <span class="text-xl font-black text-emerald-400 font-mono" x-text="formatCurrency(lastCompletedSale.total_amount)"></span>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex items-center space-x-3 pt-2">
+                <button 
+                    @click="showSaleSuccessModal = false; if (lastCompletedSale) viewSaleDetail(lastCompletedSale.id)"
+                    class="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-slate-200 rounded-xl text-xs font-bold transition-all"
+                >
+                    Ver Detalle
+                </button>
+                <button 
+                    @click="showSaleSuccessModal = false"
+                    class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950/50 transition-all"
+                >
+                    Nueva Venta
+                </button>
+            </div>
+        </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div 
+        x-show="toast.show" 
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-4"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-4"
+        class="fixed bottom-6 right-6 z-50 flex items-center space-x-2 px-4 py-3 rounded-xl shadow-2xl border text-xs font-bold"
+        :class="{
+            'bg-neutral-900 border-emerald-500/50 text-emerald-300': toast.type === 'success',
+            'bg-neutral-900 border-rose-500/50 text-rose-300': toast.type === 'error',
+            'bg-neutral-900 border-sky-500/50 text-sky-300': toast.type === 'info'
+        }"
+        x-cloak
+    >
+        <span x-text="toast.message"></span>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            setInterval(() => lucide.createIcons(), 600);
+        });
+    </script>
+</body>
+</html>

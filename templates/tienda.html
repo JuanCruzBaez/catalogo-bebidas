@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bebidas 25 de Mayo | Tienda Online y Pedidos</title>
+    <meta name="description" content="Catálogo online de Bebidas 25 de Mayo. Venta minorista y mayorista en Lanús Oeste. Pedí combos de bebidas, cervezas, vinos y destilados por WhatsApp o Email.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Estilos de la Tienda -->
+    <link rel="stylesheet" href="/static/css/tienda.css">
+</head>
+<body>
+
+    <!-- BARRA SUPERIOR INSTITUCIONAL -->
+    <div class="top-bar">
+        <div class="container top-bar-content">
+            <div class="top-info-item">
+                <i class="fa-solid fa-location-dot"></i>
+                <span>Av. 25 de Mayo 434 · Lanús Oeste</span>
+            </div>
+            <div class="top-info-item">
+                <i class="fa-regular fa-clock"></i>
+                <span>Lun a Sáb 09:30 a 21:30 hs</span>
+            </div>
+            <div class="top-info-item promo-highlight">
+                <i class="fa-solid fa-truck-fast"></i>
+                <span>Envíos a domicilio por Lanús</span>
+            </div>
+            <div class="top-info-item wholesale-pill">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Precio mayorista desde $100.000</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER PRINCIPAL -->
+    <header class="main-header" id="mainHeader">
+        <div class="container header-container">
+            <!-- Logo y Marca -->
+            <a href="/" class="brand-logo" aria-label="Bebidas 25 de Mayo">
+                <img src="/static/images/logo.png" onerror="this.src='/uploads/logo.jpg'" alt="Logo Bebidas 25 de Mayo" class="logo-img">
+                <div class="brand-text">
+                    <span class="brand-title">BEBIDAS <strong>25 DE MAYO</strong></span>
+                    <span class="brand-subtitle">DISTRIBUIDORA MAYORISTA & MINORISTA</span>
+                </div>
+            </a>
+
+            <!-- Buscador Central -->
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Buscar fernet, cervezas, combos, vodka, vinos..." autocomplete="off">
+                <button id="clearSearchBtn" class="clear-search-btn" style="display: none;" aria-label="Limpiar búsqueda">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Acciones Header (Contacto directo + Carrito) -->
+            <div class="header-actions">
+                <a href="https://wa.me/5491176265350" target="_blank" rel="noopener" class="btn-whatsapp-header" title="Consultar por WhatsApp">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    <span class="whatsapp-label">11 7626-5350</span>
+                </a>
+                
+                <button id="openCartBtn" class="btn-cart" aria-label="Ver Carrito de Compras">
+                    <div class="cart-icon-wrapper">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <span id="cartCountBadge" class="cart-badge">0</span>
+                    </div>
+                    <div class="cart-text">
+                        <span class="cart-label">Mi Pedido</span>
+                        <span id="cartTotalHeader" class="cart-total-preview">$ 0</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO CARRUSEL DE PRODUCTOS Y COMBOS -->
+    <section class="hero-carousel-section" id="heroCarouselSection">
+        <div class="container">
+            <div class="carousel-wrapper">
+                <!-- Slides Container -->
+                <div class="carousel-track" id="carouselTrack">
+                    <!-- Slide 1: Combo Fernet Branca -->
+                    <div class="carousel-slide active">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <span class="slide-badge">🔥 PROMO BOMBA DE LA SEMANA</span>
+                                <h2 class="slide-title">COMBO FERNET BRANCA 750ml<br>+ 2 COCA-COLA 2.25L</h2>
+                                <p class="slide-desc">El clásico infaltable de todas tus previas y juntadas al mejor precio de Lanús. ¡Listo para llevar y disfrutar bien frío!</p>
+                                <div class="slide-pricing">
+                                    <span class="slide-price">$ 26.000</span>
+                                    <span class="slide-regular-price">Antes: $ 29.500</span>
+                                    <span class="slide-savings">¡Ahorrás $ 3.500!</span>
+                                </div>
+                                <div class="slide-actions">
+                                    <button class="btn btn-primary" onclick="tiendaApp.addComboById(1)">
+                                        <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                        Ver todos los combos
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="slide-image-box">
+                                <img src="/uploads/combos/combo_fernet_coca.png" alt="Combo Fernet Branca + Coca Cola" class="slide-img">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 2: Combo Vodka Absolut -->
+                    <div class="carousel-slide">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <span class="slide-badge highlight-purple">⚡ COMBO FIESTA & PREVIA</span>
+                                <h2 class="slide-title">VODKA ABSOLUT 700ml<br>+ 3 SPEED UNLIMITED XL</h2>
+                                <p class="slide-desc">Vodka importado premium sueco acompañado de 3 energizantes Speed XL 500ml. El combo preferido para el fin de semana.</p>
+                                <div class="slide-pricing">
+                                    <span class="slide-price">$ 31.000</span>
+                                    <span class="slide-regular-price">Antes: $ 36.000</span>
+                                    <span class="slide-savings">¡Ahorrás $ 5.000!</span>
+                                </div>
+                                <div class="slide-actions">
+                                    <button class="btn btn-primary" onclick="tiendaApp.addComboById(2)">
+                                        <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                        Ver todos los combos
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="slide-image-box">
+                                <img src="/uploads/combos/combo_absolut_speed.png" alt="Combo Vodka Absolut + Speed XL" class="slide-img">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 3: Combo JW Red Label -->
+                    <div class="carousel-slide">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <span class="slide-badge highlight-gold">⭐ WHISKY & SPEED XL</span>
+                                <h2 class="slide-title">JOHNNIE WALKER RED 1L<br>+ 3 SPEED UNLIMITED XL</h2>
+                                <p class="slide-desc">Botella de 1 Litro de Johnnie Walker Red Label con 3 Speed XL 500ml. Excelente rendimiento para reuniones y festejos.</p>
+                                <div class="slide-pricing">
+                                    <span class="slide-price">$ 37.000</span>
+                                    <span class="slide-regular-price">Antes: $ 41.500</span>
+                                    <span class="slide-savings">¡Ahorrás $ 4.500!</span>
+                                </div>
+                                <div class="slide-actions">
+                                    <button class="btn btn-primary" onclick="tiendaApp.addComboById(3)">
+                                        <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Whisky')">
+                                        Ver whiskies
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="slide-image-box">
+                                <img src="/uploads/combos/combo_jw_speed.png" alt="Combo JW Red Label + Speed XL" class="slide-img">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 4: Pack Cervezas Corona & Heineken -->
+                    <div class="carousel-slide">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <span class="slide-badge highlight-green">🍺 CERVEZAS PREMIUM EN PACK</span>
+                                <h2 class="slide-title">PACKS DE CERVEZAS<br>CORONA & HEINEKEN 710ml</h2>
+                                <p class="slide-desc">Llevate packs cerrados con precio especial. Corona botella 710ml y latones Heineken 710ml para que nunca te falte birra.</p>
+                                <div class="slide-pricing">
+                                    <span class="slide-price">Desde $ 26.500</span>
+                                    <span class="slide-regular-price">Precios especiales por pack</span>
+                                </div>
+                                <div class="slide-actions">
+                                    <button class="btn btn-primary" onclick="tiendaApp.filterByCategory('Cerveza')">
+                                        <i class="fa-solid fa-beer-mug-empty"></i> Ver Cervezas
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="slide-image-box">
+                                <img src="/uploads/combos/corona_710.png" alt="Cervezas Corona" class="slide-img">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flechas del carrusel -->
+                <button class="carousel-nav-btn prev" id="carouselPrevBtn" aria-label="Slide anterior">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button class="carousel-nav-btn next" id="carouselNextBtn" aria-label="Siguiente slide">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+
+                <!-- Dots de paginación -->
+                <div class="carousel-dots" id="carouselDots"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BANNER DE GARANTÍAS COMERCIALES -->
+    <section class="trust-banner-section">
+        <div class="container trust-grid">
+            <div class="trust-card">
+                <div class="trust-icon"><i class="fa-solid fa-truck-fast"></i></div>
+                <div class="trust-text">
+                    <h4>ENVÍOS A DOMICILIO</h4>
+                    <p>Entregas rápidas en el día por Lanús y zonas cercanas.</p>
+                </div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                <div class="trust-text">
+                    <h4>VENTA POR MAYOR</h4>
+                    <p>Precios mayoristas a partir de compras de $100.000.</p>
+                </div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="trust-text">
+                    <h4>PRODUCTOS 100% ORIGINALES</h4>
+                    <p>Bebidas nacionales e importadas de primera línea.</p>
+                </div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <div class="trust-text">
+                    <h4>PEDIDOS DIRECTOS</h4>
+                    <p>Armá tu pedido y te respondemos de inmediato por WhatsApp.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN COMBOS DESTACADOS CON ACOMPAÑANTES -->
+    <section class="combos-section" id="combosSection">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-title-wrap">
+                    <span class="section-badge">🔥 ARMÁ TU FIESTA</span>
+                    <h2 class="section-title">COMBOS DE BEBIDAS CON ACOMPAÑANTE</h2>
+                    <p class="section-subtitle">Elegí tu bebida con sus gaseosas o energizantes acompañantes incluidos y ahorrá dinero en tu compra.</p>
+                </div>
+            </div>
+
+            <!-- Grilla de Combos -->
+            <div class="combos-grid" id="combosGrid">
+                <!-- Se rellena dinámicamente con JS desde /api/public/combos -->
+                <div class="loading-state">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Cargando combos especiales...
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NAVEGACIÓN Y FILTROS POR CATEGORÍA -->
+    <section class="categories-bar-section" id="catalogSection">
+        <div class="container">
+            <div class="categories-scroll-wrapper">
+                <div class="categories-pills" id="categoryPills">
+                    <button class="pill-btn active" data-category="all">
+                        <i class="fa-solid fa-layer-group"></i> Todos los Productos
+                    </button>
+                    <!-- Las categorías se inyectan dinámicamente desde /api/public/categories -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CATÁLOGO PRINCIPAL DE PRODUCTOS -->
+    <main class="products-catalog-section">
+        <div class="container">
+            <!-- Barra de estado / conteo de resultados -->
+            <div class="catalog-status-bar">
+                <div class="results-info">
+                    <span id="resultsCountText">Cargando catálogo...</span>
+                    <span id="activeFilterBadge" class="filter-tag" style="display: none;"></span>
+                </div>
+                <div class="catalog-quick-sort">
+                    <label for="sortSelect">Ordenar por:</label>
+                    <select id="sortSelect" class="sort-select">
+                        <option value="featured">Destacados</option>
+                        <option value="price-asc">Menor precio</option>
+                        <option value="price-desc">Mayor precio</option>
+                        <option value="name-asc">Nombre A-Z</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Grilla de Productos -->
+            <div class="products-grid" id="productsGrid">
+                <div class="loading-state">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Cargando catálogo de bebidas...
+                </div>
+            </div>
+
+            <!-- Estado sin resultados -->
+            <div id="noResultsState" class="empty-state" style="display: none;">
+                <i class="fa-solid fa-wine-bottle empty-icon"></i>
+                <h3>No se encontraron productos</h3>
+                <p>Intentá buscar con otra palabra clave o seleccioná otra categoría.</p>
+                <button class="btn btn-secondary" onclick="tiendaApp.resetFilters()">
+                    Ver todos los productos
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL / DRAWER DEL CARRITO DE COMPRAS -->
+    <div class="cart-backdrop" id="cartBackdrop"></div>
+    <aside class="cart-drawer" id="cartDrawer" aria-hidden="true">
+        <!-- Cabecera del Carrito -->
+        <div class="cart-header">
+            <div class="cart-header-title">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <h3>Tu Pedido</h3>
+                <span id="cartDrawerCount" class="cart-counter-pill">0</span>
+            </div>
+            <button id="closeCartBtn" class="btn-close-cart" aria-label="Cerrar carrito">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Lista de Productos en el Carrito -->
+        <div class="cart-body" id="cartItemsContainer">
+            <!-- Items generados dinámicamente -->
+        </div>
+
+        <!-- Pie y Formulario de Finalización del Pedido -->
+        <div class="cart-footer" id="cartFooter">
+            <!-- Aviso Mayorista dinámico -->
+            <div id="wholesaleNoticeBox" class="wholesale-alert" style="display: none;">
+                <i class="fa-solid fa-award"></i>
+                <span><strong>¡Calificas para compra mayorista!</strong> Al coordinar tu pedido por WhatsApp te aplicaremos los descuentos mayoristas correspondientes.</span>
+            </div>
+
+            <!-- Totales -->
+            <div class="cart-summary-totals">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span id="cartSubtotal">$ 0</span>
+                </div>
+                <div class="summary-row total-row">
+                    <span>Total Estimado</span>
+                    <span id="cartTotal" class="total-amount">$ 0</span>
+                </div>
+            </div>
+
+            <!-- Formulario de Datos del Cliente -->
+            <div class="checkout-form">
+                <h4 class="form-title"><i class="fa-solid fa-user-check"></i> Tus Datos para el Pedido</h4>
+                
+                <div class="form-group">
+                    <label for="customerName">Nombre y Apellido *</label>
+                    <input type="text" id="customerName" placeholder="Ej. Juan Pérez" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customerPhone">Teléfono / WhatsApp *</label>
+                    <input type="tel" id="customerPhone" placeholder="Ej. 11 1234-5678" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Forma de Entrega *</label>
+                    <div class="delivery-options">
+                        <label class="delivery-radio-label">
+                            <input type="radio" name="deliveryType" value="delivery" checked>
+                            <span class="radio-custom"></span>
+                            <span>🛵 Envío a Domicilio (Lanús)</span>
+                        </label>
+                        <label class="delivery-radio-label">
+                            <input type="radio" name="deliveryType" value="pickup">
+                            <span class="radio-custom"></span>
+                            <span>🏪 Retiro en Local (Av. 25 de Mayo 434)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="addressFieldGroup">
+                    <label for="customerAddress">Dirección de Entrega y Entrecalles *</label>
+                    <input type="text" id="customerAddress" placeholder="Ej. Av. San Martín 1500 (e/ Del Valle y 25 de Mayo)">
+                </div>
+
+                <div class="form-group">
+                    <label for="paymentMethod">Forma de Pago Prevista</label>
+                    <select id="paymentMethod" class="select-payment">
+                        <option value="Efectivo">Efectivo al recibir / retirar</option>
+                        <option value="Transferencia">Transferencia Bancaria / Alias MP</option>
+                        <option value="QR Mercado Pago">QR Mercado Pago (+1%)</option>
+                        <option value="Tarjeta de Débito">Tarjeta de Débito (+2%)</option>
+                        <option value="Tarjeta de Crédito">Tarjeta de Crédito (+7%)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="orderNotes">Aclaraciones o Notas (Opcional)</label>
+                    <textarea id="orderNotes" rows="2" placeholder="Ej. Por favor que las gaseosas estén bien frías, timbre 3B..."></textarea>
+                </div>
+
+                <!-- Botones de Checkout -->
+                <div class="checkout-actions">
+                    <button id="sendWhatsappOrderBtn" class="btn btn-whatsapp-checkout">
+                        <i class="fa-brands fa-whatsapp"></i>
+                        <span>Enviar Pedido por WhatsApp</span>
+                    </button>
+
+                    <button id="sendEmailOrderBtn" class="btn btn-email-checkout">
+                        <i class="fa-solid fa-envelope"></i>
+                        <span>Enviar Pedido por Email</span>
+                    </button>
+                </div>
+                
+                <p class="order-notice">
+                    <i class="fa-solid fa-shield-halved"></i> Tus datos no serán compartidos y se utilizan únicamente para procesar tu pedido.
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- FOOTER INSTITUCIONAL -->
+    <footer class="main-footer">
+        <div class="container footer-content">
+            <div class="footer-col brand-col">
+                <div class="footer-brand">
+                    <h3>BEBIDAS 25 DE MAYO</h3>
+                    <p class="slogan-text">"Para tu negocio y para vos"</p>
+                </div>
+                <p class="footer-desc">Distribuidora mayorista y minorista de bebidas, cervezas, vinos, licores, aperitivos y snacks en Lanús Oeste.</p>
+                <div class="social-links">
+                    <a href="https://instagram.com/bebidas25demayo" target="_blank" rel="noopener" class="social-btn instagram" aria-label="Instagram @bebidas25demayo">
+                        <i class="fa-brands fa-instagram"></i>
+                    </a>
+                    <a href="https://wa.me/5491176265350" target="_blank" rel="noopener" class="social-btn whatsapp" aria-label="WhatsApp 11 7626-5350">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </a>
+                    <a href="mailto:bebidas.25demayo@hotmail.com" class="social-btn email" aria-label="Email bebidas.25demayo@hotmail.com">
+                        <i class="fa-solid fa-envelope"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h4 class="footer-title">Contacto & Local</h4>
+                <ul class="footer-info-list">
+                    <li><i class="fa-solid fa-location-dot"></i> Av. 25 de Mayo 434, Lanús Oeste</li>
+                    <li><i class="fa-brands fa-whatsapp"></i> WhatsApp: 11 7626-5350</li>
+                    <li><i class="fa-solid fa-envelope"></i> bebidas.25demayo@hotmail.com</li>
+                    <li><i class="fa-regular fa-clock"></i> Lunes a Sábados: 09:30 a 21:30 hs</li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h4 class="footer-title">Venta Mayorista</h4>
+                <p class="footer-text">Si tenés un bar, restaurante, kiosco o evento, accedé a nuestra lista mayorista a partir de los $100.000 de compra.</p>
+                <a href="https://wa.me/5491176265350?text=Hola!%20Quisiera%20consultar%20condiciones%20para%20compra%20mayorista" target="_blank" rel="noopener" class="btn btn-outline-gold">
+                    <i class="fa-brands fa-whatsapp"></i> Consultar Mayorista
+                </a>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div class="container footer-bottom-inner">
+                <p>© 2026 BEBIDAS 25 DE MAYO · Todos los derechos reservados.</p>
+                <a href="/admin" class="admin-discreet-link" title="Panel de gestión interna">
+                    <i class="fa-solid fa-lock"></i> Acceso Administración
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Botón flotante móvil de Carrito -->
+    <button id="floatingCartBtn" class="floating-cart-btn" aria-label="Ver Carrito">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span id="floatingCartCount" class="floating-badge">0</span>
+    </button>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast-notification"></div>
+
+    <!-- Scripts de la Tienda -->
+    <script src="/static/js/tienda.js"></script>
+</body>
+</html>

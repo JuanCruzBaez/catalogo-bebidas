@@ -28,6 +28,44 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# ----------------- CONFIGURACIÓN DE SINCRONIZACIÓN LOCAL <-> NUBE -----------------
+SYNC_SECRET_KEY = os.environ.get('SYNC_SECRET_KEY', 'bebidas25demayo-sync-secret-2026')
+IS_RENDER = bool(os.environ.get('RENDER') or os.environ.get('RENDER_SERVICE_ID'))
+
+def get_remote_sync_url():
+    """Obtiene la URL remota del servidor web para sincronización"""
+    try:
+        settings = database.get_all_settings()
+        custom_url = settings.get('remote_sync_url', '').strip()
+        if custom_url:
+            return custom_url.rstrip('/')
+    except Exception:
+        pass
+    env_url = os.environ.get('REMOTE_SYNC_URL', '').strip()
+    if env_url:
+        return env_url.rstrip('/')
+    return 'https://bebidas25demayo.onrender.com'
+
+def trigger_background_sync():
+    """Lanza la sincronización con el servidor remoto en segundo plano sin demorar la respuesta"""
+    if not IS_RENDER:
+        threading.Thread(target=sync_push_to_remote, daemon=True).start()
+
+def sync_push_to_remote():
+    """Envía los datos locales al servidor remoto de forma silenciosa"""
+    try:
+        import requests
+        remote_url = get_remote_sync_url()
+        headers = {
+            'X-Sync-Token': SYNC_SECRET_KEY,
+            'Content-Type': 'application/json'
+        }
+        payload = database.get_sync_export_payload(since_sale_id=0)
+        requests.post(f"{remote_url}/api/sync/push", json=payload, headers=headers, timeout=12)
+    except Exception:
+        # Silencioso para no interferir con la caja física
+        pass
+
 # ----------------- AUTENTICACIÓN Y SEGURIDAD ADMIN -----------------
 
 @app.before_request
@@ -43,6 +81,15 @@ def require_admin_auth():
     ):
         return None
         
+    # Rutas de sincronización autenticadas mediante token secreto o sesión de admin
+    if path.startswith('/api/sync/'):
+        sync_token = request.headers.get('X-Sync-Token') or request.args.get('sync_token')
+        if sync_token and sync_token == SYNC_SECRET_KEY:
+            return None
+        if session.get('is_admin'):
+            return None
+        return jsonify({"error": "No autorizado para sincronización"}), 401
+
     # Cualquier otra ruta (panel de stock, costos, ventas POS, gestión interna) requiere ser admin
     if not session.get('is_admin'):
         if path.startswith('/api/'):
@@ -234,6 +281,7 @@ def api_create_product():
 
     prod_id = database.create_product(data)
     new_product = database.get_product(prod_id)
+    trigger_background_sync()
     return jsonify({"success": True, "product": new_product}), 201
 
 @app.route('/api/products/<int:prod_id>', methods=['GET'])
@@ -262,11 +310,13 @@ def api_update_product(prod_id):
 
     database.update_product(prod_id, data)
     updated = database.get_product(prod_id)
+    trigger_background_sync()
     return jsonify({"success": True, "product": updated})
 
 @app.route('/api/products/<int:prod_id>', methods=['DELETE'])
 def api_delete_product(prod_id):
     database.delete_product(prod_id)
+    trigger_background_sync()
     return jsonify({"success": True, "message": "Producto eliminado"})
 
 @app.route('/api/products/<int:prod_id>/duplicate', methods=['POST'])
@@ -281,6 +331,7 @@ def api_duplicate_product(prod_id):
     
     new_id = database.create_product(prod_data)
     new_prod = database.get_product(new_id)
+    trigger_background_sync()
     return jsonify({"success": True, "product": new_prod}), 201
 
 @app.route('/api/products/<int:prod_id>/toggle-active', methods=['POST'])
@@ -293,6 +344,7 @@ def api_toggle_active(prod_id):
     prod_data = dict(prod)
     prod_data['is_active'] = new_status
     database.update_product(prod_id, prod_data)
+    trigger_background_sync()
     return jsonify({"success": True, "is_active": new_status})
 
 @app.route('/api/products/<int:prod_id>/stock', methods=['POST'])
@@ -300,6 +352,7 @@ def api_update_product_stock(prod_id):
     data = request.get_json() or {}
     new_stock = int(data.get('stock', 0))
     database.update_product_stock(prod_id, new_stock)
+    trigger_background_sync()
     return jsonify({"success": True, "stock": new_stock})
 
 # ----------------- AJUSTE MASIVO DE PRECIOS -----------------
@@ -317,6 +370,7 @@ def api_bulk_adjustment():
     price_type = data.get('price_type', 'both') # 'minorista', 'mayorista', 'both'
 
     database.bulk_adjust_prices(category_id=category_id, percentage=percentage, price_type=price_type)
+    trigger_background_sync()
     return jsonify({"success": True, "message": f"Precios actualizados en un {percentage:+}%"})
 
 # ----------------- API CATEGORÍAS -----------------
@@ -607,6 +661,8 @@ def api_create_sale():
         sale_detail = database.get_sale_detail(sale_id)
         updated_products = [database.get_product(it['product_id']) for it in items]
         
+        trigger_background_sync()
+
         return jsonify({
             "success": True, 
             "sale": sale_detail,
@@ -629,6 +685,7 @@ def api_update_sale(sale_id):
     updated_sale = database.update_sale(sale_id, data)
     if not updated_sale:
         return jsonify({"error": "Venta no encontrada o no se pudo actualizar"}), 404
+    trigger_background_sync()
     return jsonify({
         "success": True, 
         "sale": updated_sale, 
@@ -641,6 +698,7 @@ def api_cancel_sale(sale_id):
     if not success:
         return jsonify({"error": "No se pudo anular la venta o ya estaba anulada"}), 400
     
+    trigger_background_sync()
     # Devolver productos para refrescar stock en frontend
     sale = database.get_sale_detail(sale_id)
     updated_products = [database.get_product(it['product_id']) for it in sale.get('items', [])]
@@ -664,6 +722,161 @@ def api_get_profit_breakdown():
     date = request.args.get('date', default=None)
     breakdown = database.get_profit_breakdown(period=period, month=month, date=date)
     return jsonify({"success": True, "breakdown": breakdown})
+
+
+# ----------------- ENDPOINTS DE SINCRONIZACIÓN LOCAL <-> NUBE -----------------
+
+@app.route('/api/sync/status', methods=['GET'])
+def api_sync_status():
+    """Retorna el estado de la base de datos y del servidor (local vs Render)"""
+    st = database.get_sync_status()
+    st['is_cloud'] = IS_RENDER
+    st['remote_url'] = get_remote_sync_url()
+    return jsonify(st)
+
+@app.route('/api/sync/push', methods=['POST'])
+def api_sync_push():
+    """Recibe un paquete de sincronización y lo aplica a la base de datos"""
+    payload = request.get_json()
+    if not payload:
+        return jsonify({"error": "Payload JSON requerido"}), 400
+    res = database.apply_sync_payload(payload)
+    return jsonify(res)
+
+@app.route('/api/sync/pull', methods=['GET'])
+def api_sync_pull():
+    """Exporta el paquete de sincronización para que el otro extremo lo descargue"""
+    since_sale_id = int(request.args.get('since_sale_id', 0))
+    payload = database.get_sync_export_payload(since_sale_id)
+    return jsonify(payload)
+
+@app.route('/api/sync/upload-db', methods=['POST'])
+def api_sync_upload_db():
+    """Recibe una copia binaria completa de catalogo.db y reemplaza la base en vivo"""
+    if 'db_file' in request.files:
+        file = request.files['db_file']
+        data_bytes = file.read()
+    else:
+        data_bytes = request.get_data()
+        
+    if not data_bytes:
+        return jsonify({"error": "No se recibieron datos de base de datos"}), 400
+        
+    try:
+        database.replace_db_from_bytes(data_bytes)
+        return jsonify({"success": True, "message": "Base de datos reemplazada y sincronizada con éxito"})
+    except Exception as e:
+        return jsonify({"error": f"Error al reemplazar base de datos: {str(e)}"}), 500
+
+@app.route('/api/sync/download-db', methods=['GET'])
+def api_sync_download_db():
+    """Permite descargar el archivo catalogo.db actual"""
+    if not os.path.exists(database.DB_PATH):
+        return jsonify({"error": "Base de datos no encontrada"}), 404
+    return send_file(database.DB_PATH, as_attachment=True, download_name='catalogo.db')
+
+@app.route('/api/sync/trigger', methods=['POST'])
+def api_sync_trigger():
+    """
+    Invocado por el usuario desde el panel local para sincronizar con la nube (Render).
+    Envía ventas nuevas y estado de productos hacia la web, y descarga cambios de la web.
+    """
+    import requests
+    
+    remote_url = get_remote_sync_url()
+    headers = {
+        'X-Sync-Token': SYNC_SECRET_KEY,
+        'Content-Type': 'application/json'
+    }
+    
+    # 1. Obtener estado del servidor remoto
+    try:
+        status_res = requests.get(f"{remote_url}/api/sync/status", headers=headers, timeout=12)
+        if not status_res.ok:
+            return jsonify({
+                "error": f"El servidor web respondió con código {status_res.status_code}. Verifique que el servicio en Render esté activo."
+            }), 502
+        remote_status = status_res.json()
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": f"No se pudo conectar con el servidor web online ({remote_url}): {str(e)}"
+        }), 502
+
+    # 2. Exportar payload local
+    # Si el servidor remoto tiene menos ventas o 0 ventas (ej: base reseteada), enviar todas
+    since_sale_id = int(remote_status.get('last_sale_id', 0))
+    local_status = database.get_sync_status()
+    
+    local_payload = database.get_sync_export_payload(since_sale_id=0 if remote_status.get('total_sales', 0) == 0 else since_sale_id)
+    
+    # 3. Enviar cambios locales hacia la web
+    try:
+        push_res = requests.post(
+            f"{remote_url}/api/sync/push",
+            json=local_payload,
+            headers=headers,
+            timeout=35
+        )
+        if not push_res.ok:
+            return jsonify({"error": f"Error al enviar datos a la web: {push_res.text}"}), 502
+        push_result = push_res.json()
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Error de conexión durante el envío a la web: {str(e)}"}), 502
+
+    # 4. Traer ventas que puedan haberse registrado en la web si las hubiera
+    try:
+        pull_res = requests.get(
+            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}",
+            headers=headers,
+            timeout=15
+        )
+        if pull_res.ok:
+            remote_payload = pull_res.json()
+            if remote_payload.get('sales'):
+                database.apply_sync_payload(remote_payload)
+    except Exception:
+        pass
+
+    return jsonify({
+        "success": True,
+        "message": "Sincronización exitosa con la web online.",
+        "imported_sales": push_result.get('imported_sales', 0),
+        "updated_products": push_result.get('updated_products', 0),
+        "remote_url": remote_url,
+        "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
+    })
+
+@app.route('/api/sync/trigger-full-upload', methods=['POST'])
+def api_sync_trigger_full_upload():
+    """
+    Sube el archivo catalogo.db local COMPLETO directamente al servidor Render.
+    Esto actualiza instantáneamente todo el catálogo, stock y ventas de la web.
+    """
+    import requests
+    
+    remote_url = get_remote_sync_url()
+    headers = {
+        'X-Sync-Token': SYNC_SECRET_KEY
+    }
+    
+    if not os.path.exists(database.DB_PATH):
+        return jsonify({"error": "Base de datos local no encontrada"}), 404
+        
+    try:
+        with open(database.DB_PATH, 'rb') as f:
+            files = {'db_file': ('catalogo.db', f, 'application/octet-stream')}
+            res = requests.post(f"{remote_url}/api/sync/upload-db", files=files, headers=headers, timeout=45)
+            
+        if not res.ok:
+            return jsonify({"error": f"Error del servidor remoto ({res.status_code}): {res.text}"}), 502
+            
+        return jsonify({
+            "success": True,
+            "message": "Base de datos completa transferida y sincronizada con éxito a la web online.",
+            "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({"error": f"Error al subir base de datos: {str(e)}"}), 502
 
 
 # ----------------- INICIALIZACIÓN DE LA APLICACIÓN -----------------

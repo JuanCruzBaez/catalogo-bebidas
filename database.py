@@ -1,6 +1,14 @@
 import sqlite3
 import os
 import json
+from datetime import datetime, timedelta, timezone
+
+# Zona horaria oficial de Argentina (UTC-3)
+AR_TZ = timezone(timedelta(hours=-3))
+
+def get_now_ar():
+    """Retorna la fecha y hora actual en zona horaria de Argentina (UTC-3)"""
+    return datetime.now(AR_TZ)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "catalogo.db")
 
@@ -1015,7 +1023,7 @@ def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=Non
     sql = """
     SELECT 
         s.*, 
-        datetime(s.created_at, 'localtime') as created_at_local,
+        datetime(s.created_at, '-3 hours') as created_at_local,
         (
             SELECT GROUP_CONCAT(si.product_name || ' (' || si.quantity || ' un.)', ', ')
             FROM sale_items si
@@ -1073,7 +1081,7 @@ def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=Non
             params.extend(item_params)
 
     if date_filter:
-        sql += " AND date(s.created_at, 'localtime') = date(?)"
+        sql += " AND date(s.created_at, '-3 hours') = date(?)"
         params.append(date_filter)
 
     sql += " ORDER BY s.id DESC LIMIT ? OFFSET ?"
@@ -1091,7 +1099,7 @@ def get_sale_detail(sale_id):
     cursor = conn.cursor()
     
     cursor.execute("""
-    SELECT *, datetime(created_at, 'localtime') as created_at_local 
+    SELECT *, datetime(created_at, '-3 hours') as created_at_local 
     FROM sales 
     WHERE id = ?
     """, (sale_id,))
@@ -1165,7 +1173,7 @@ def get_sales_summary(date_filter=None, month_filter=None):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    now = datetime.now()
+    now = get_now_ar()
     today_str = now.strftime('%Y-%m-%d')
     yesterday_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
     start_of_week = (now - timedelta(days=now.weekday())).strftime('%Y-%m-%d')
@@ -1201,11 +1209,11 @@ def get_sales_summary(date_filter=None, month_filter=None):
             res['margin_pct'] = 0.0
         return res
 
-    today = query_stats("date(created_at, 'localtime') = date(?)", (today_str,))
-    yesterday = query_stats("date(created_at, 'localtime') = date(?)", (yesterday_str,))
-    week = query_stats("(date(created_at, 'localtime') >= date(?) AND date(created_at, 'localtime') <= date(?))", (start_of_week, today_str))
-    month = query_stats("(date(created_at, 'localtime') >= date(?) AND date(created_at, 'localtime') <= date(?))", (start_of_month, today_str))
-    year = query_stats("(date(created_at, 'localtime') >= date(?) AND date(created_at, 'localtime') <= date(?))", (start_of_year, today_str))
+    today = query_stats("date(created_at, '-3 hours') = date(?)", (today_str,))
+    yesterday = query_stats("date(created_at, '-3 hours') = date(?)", (yesterday_str,))
+    week = query_stats("(date(created_at, '-3 hours') >= date(?) AND date(created_at, '-3 hours') <= date(?))", (start_of_week, today_str))
+    month = query_stats("(date(created_at, '-3 hours') >= date(?) AND date(created_at, '-3 hours') <= date(?))", (start_of_month, today_str))
+    year = query_stats("(date(created_at, '-3 hours') >= date(?) AND date(created_at, '-3 hours') <= date(?))", (start_of_year, today_str))
     historical = query_stats("1=1")
     historical['total_all'] = historical['total']
     historical['count_all'] = historical['count']
@@ -1214,11 +1222,11 @@ def get_sales_summary(date_filter=None, month_filter=None):
 
     custom_date = None
     if date_filter:
-        custom_date = query_stats("date(created_at, 'localtime') = date(?)", (date_filter,))
+        custom_date = query_stats("date(created_at, '-3 hours') = date(?)", (date_filter,))
 
     custom_month = None
     if month_filter:
-        custom_month = query_stats("strftime('%Y-%m', created_at, 'localtime') = ?", (month_filter,))
+        custom_month = query_stats("strftime('%Y-%m', created_at, '-3 hours') = ?", (month_filter,))
 
     conn.close()
 
@@ -1249,12 +1257,10 @@ def get_profit_breakdown(period='today', month=None, date=None):
     - Margen %
     - Ganancia total acumulada
     """
-    from datetime import datetime, timedelta
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    now = datetime.now()
+    now = get_now_ar()
     today_str = now.strftime('%Y-%m-%d')
     yesterday_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
     start_of_week = (now - timedelta(days=now.weekday())).strftime('%Y-%m-%d')
@@ -1265,25 +1271,25 @@ def get_profit_breakdown(period='today', month=None, date=None):
     params = []
 
     if date:
-        where_clause += " AND date(s.created_at, 'localtime') = date(?)"
+        where_clause += " AND date(s.created_at, '-3 hours') = date(?)"
         params.append(date)
     elif month:
-        where_clause += " AND strftime('%Y-%m', s.created_at, 'localtime') = ?"
+        where_clause += " AND strftime('%Y-%m', s.created_at, '-3 hours') = ?"
         params.append(month)
     elif period == 'today':
-        where_clause += " AND date(s.created_at, 'localtime') = date(?)"
+        where_clause += " AND date(s.created_at, '-3 hours') = date(?)"
         params.append(today_str)
     elif period == 'yesterday':
-        where_clause += " AND date(s.created_at, 'localtime') = date(?)"
+        where_clause += " AND date(s.created_at, '-3 hours') = date(?)"
         params.append(yesterday_str)
     elif period == 'week':
-        where_clause += " AND (date(s.created_at, 'localtime') >= date(?) AND date(s.created_at, 'localtime') <= date(?))"
+        where_clause += " AND (date(s.created_at, '-3 hours') >= date(?) AND date(s.created_at, '-3 hours') <= date(?))"
         params.extend([start_of_week, today_str])
     elif period == 'month':
-        where_clause += " AND (date(s.created_at, 'localtime') >= date(?) AND date(s.created_at, 'localtime') <= date(?))"
+        where_clause += " AND (date(s.created_at, '-3 hours') >= date(?) AND date(s.created_at, '-3 hours') <= date(?))"
         params.extend([start_of_month, today_str])
     elif period == 'year':
-        where_clause += " AND (date(s.created_at, 'localtime') >= date(?) AND date(s.created_at, 'localtime') <= date(?))"
+        where_clause += " AND (date(s.created_at, '-3 hours') >= date(?) AND date(s.created_at, '-3 hours') <= date(?))"
         params.extend([start_of_year, today_str])
     elif period == 'historical':
         pass
@@ -1350,4 +1356,197 @@ def get_profit_breakdown(period='today', month=None, date=None):
     }
 
 
+# =====================================================================
+# MOTOR DE SINCRONIZACIÓN LOCAL <-> NUBE (WEB)
+# =====================================================================
 
+def get_sync_status():
+    """Retorna un resumen del estado actual de la base de datos para sincronización"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COALESCE(MAX(id), 0), COUNT(id) FROM sales")
+    last_sale_id, total_sales = cursor.fetchone()
+    
+    cursor.execute("SELECT COUNT(id), COALESCE(SUM(stock), 0) FROM products")
+    total_products, total_stock = cursor.fetchone()
+    
+    cursor.execute("SELECT COALESCE(MAX(created_at), '') FROM sales")
+    last_sale_date = cursor.fetchone()[0]
+    
+    conn.close()
+    return {
+        "last_sale_id": last_sale_id,
+        "total_sales": total_sales,
+        "total_products": total_products,
+        "total_stock": total_stock,
+        "last_sale_date": last_sale_date,
+        "server_time": get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+def get_sync_export_payload(since_sale_id=0):
+    """Genera el paquete de datos completo para sincronizar hacia el otro servidor"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Ventas nuevas posteriores a since_sale_id
+    cursor.execute("SELECT * FROM sales WHERE id > ? ORDER BY id ASC", (since_sale_id,))
+    sales = [dict(r) for r in cursor.fetchall()]
+    
+    sale_ids = [s['id'] for s in sales]
+    sale_items = []
+    if sale_ids:
+        placeholders = ','.join(['?'] * len(sale_ids))
+        cursor.execute(f"SELECT * FROM sale_items WHERE sale_id IN ({placeholders}) ORDER BY id ASC", sale_ids)
+        sale_items = [dict(r) for r in cursor.fetchall()]
+        
+    # 2. Estado actual de productos (stock, precios, costos, catálogo)
+    cursor.execute("SELECT * FROM products ORDER BY id ASC")
+    products = [dict(r) for r in cursor.fetchall()]
+    
+    # 3. Categorías
+    cursor.execute("SELECT * FROM categories ORDER BY id ASC")
+    categories = [dict(r) for r in cursor.fetchall()]
+    
+    # 4. Configuraciones generales
+    cursor.execute("SELECT key, value FROM settings")
+    settings = {r['key']: r['value'] for r in cursor.fetchall()}
+    
+    conn.close()
+    return {
+        "status": get_sync_status(),
+        "sales": sales,
+        "sale_items": sale_items,
+        "products": products,
+        "categories": categories,
+        "settings": settings
+    }
+
+def apply_sync_payload(payload):
+    """Aplica de manera segura el paquete de sincronización recibido"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    imported_sales = 0
+    updated_products = 0
+    
+    # 1. Sincronizar Categorías
+    categories = payload.get('categories', [])
+    for c in categories:
+        cursor.execute("""
+            INSERT INTO categories (id, name, order_index, is_active)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                order_index = excluded.order_index,
+                is_active = excluded.is_active
+        """, (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('is_active', 1)))
+        
+    # 2. Sincronizar Productos (Precios, Stock, Costos)
+    products = payload.get('products', [])
+    for p in products:
+        cursor.execute("""
+            INSERT INTO products (
+                id, category_id, name, presentation, price_minorista, price_mayorista,
+                cost_price, supplier, profit_margin_target, image_path, order_index,
+                stock, is_active, is_featured
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                category_id = excluded.category_id,
+                name = excluded.name,
+                presentation = excluded.presentation,
+                price_minorista = excluded.price_minorista,
+                price_mayorista = excluded.price_mayorista,
+                cost_price = excluded.cost_price,
+                supplier = excluded.supplier,
+                profit_margin_target = excluded.profit_margin_target,
+                stock = excluded.stock,
+                is_active = excluded.is_active,
+                is_featured = excluded.is_featured
+        """, (
+            p.get('id'), p.get('category_id'), p.get('name'), p.get('presentation', ''),
+            float(p.get('price_minorista', 0) or 0), float(p.get('price_mayorista', 0) or 0),
+            float(p.get('cost_price', 0) or 0), str(p.get('supplier', '') or ''),
+            float(p.get('profit_margin_target', 0) or 0), str(p.get('image_path', '') or ''),
+            int(p.get('order_index', 0) or 0), int(p.get('stock', 0) or 0),
+            int(p.get('is_active', 1) or 0), int(p.get('is_featured', 0) or 0)
+        ))
+        updated_products += 1
+
+    # 3. Sincronizar Ventas (sales)
+    sales = payload.get('sales', [])
+    for s in sales:
+        cursor.execute("""
+            INSERT OR IGNORE INTO sales (
+                id, seller_name, price_type, payment_method, notes,
+                subtotal_amount, surcharge_pct, surcharge_amount,
+                total_amount, total_cost, total_profit, total_items,
+                status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            s.get('id'), s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
+            s.get('payment_method', 'Efectivo'), s.get('notes', ''),
+            float(s.get('subtotal_amount', 0) or 0), float(s.get('surcharge_pct', 0) or 0),
+            float(s.get('surcharge_amount', 0) or 0), float(s.get('total_amount', 0) or 0),
+            float(s.get('total_cost', 0) or 0), float(s.get('total_profit', 0) or 0),
+            int(s.get('total_items', 1) or 1), s.get('status', 'completed'),
+            s.get('created_at')
+        ))
+        if cursor.rowcount > 0:
+            imported_sales += 1
+            
+    # 4. Sincronizar Items de Venta (sale_items)
+    items = payload.get('sale_items', [])
+    for it in items:
+        cursor.execute("""
+            INSERT OR IGNORE INTO sale_items (
+                id, sale_id, product_id, product_name, presentation,
+                price_type, unit_price, cost_price, profit, quantity, subtotal
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            it.get('id'), it.get('sale_id'), it.get('product_id'),
+            it.get('product_name', ''), it.get('presentation', ''),
+            it.get('price_type', 'minorista'), float(it.get('unit_price', 0) or 0),
+            float(it.get('cost_price', 0) or 0), float(it.get('profit', 0) or 0),
+            int(it.get('quantity', 1) or 1), float(it.get('subtotal', 0) or 0)
+        ))
+
+    conn.commit()
+    conn.close()
+    
+    return {
+        "success": True,
+        "imported_sales": imported_sales,
+        "updated_products": updated_products,
+        "synced_at": get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+def replace_db_from_bytes(data_bytes):
+    """Reemplaza catalogo.db de forma atómica y segura con una copia binaria recibida"""
+    import shutil
+    if len(data_bytes) < 1000:
+        raise ValueError("El archivo recibido es demasiado pequeño para ser una base de datos válida")
+    
+    temp_path = DB_PATH + ".sync_temp"
+    with open(temp_path, "wb") as f:
+        f.write(data_bytes)
+        
+    temp_conn = sqlite3.connect(temp_path)
+    res = temp_conn.execute("PRAGMA integrity_check").fetchone()
+    temp_conn.close()
+    if not res or res[0] != "ok":
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise ValueError("La base de datos recibida está corrupta o no pasó el integrity check")
+        
+    bak_path = DB_PATH + ".bak"
+    try:
+        if os.path.exists(bak_path):
+            os.remove(bak_path)
+        if os.path.exists(DB_PATH):
+            os.rename(DB_PATH, bak_path)
+    except Exception:
+        pass
+        
+    shutil.move(temp_path, DB_PATH)
+    return True

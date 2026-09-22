@@ -23,6 +23,11 @@ document.addEventListener('alpine:init', () => {
         showClearDbModal: false,
         newAdminPassword: '',
         
+        // Estado de Sincronización Local <-> Web
+        isSyncing: false,
+        lastSyncTime: localStorage.getItem('last_sync_time') || null,
+        syncState: localStorage.getItem('last_sync_time') ? 'synced' : 'idle',
+        
         // Estado del Módulo de Ventas (Punto de Venta)
         salesSubView: 'pos', // 'pos' o 'history'
         historySubTab: 'sales', // 'sales' (Listado de Ventas) o 'profits' (Balance de Utilidades y Ganancias)
@@ -1247,6 +1252,78 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (err) {
                 this.showToast("Error de red al anular venta", "error");
+            }
+        },
+
+        // =========================================================
+        // MÉTODOS DE SINCRONIZACIÓN LOCAL <-> NUBE (WEB)
+        // =========================================================
+        async syncWithWeb() {
+            if (this.isSyncing) return;
+            this.isSyncing = true;
+            this.syncState = 'syncing';
+            this.showToast("Iniciando sincronización con el servidor web...", "info");
+
+            try {
+                const res = await fetch('/api/sync/trigger', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    this.lastSyncTime = data.timestamp;
+                    this.syncState = 'synced';
+                    localStorage.setItem('last_sync_time', data.timestamp);
+                    this.showToast(`¡Sincronizado! ${data.imported_sales || 0} ventas y ${data.updated_products || 0} productos actualizados en la web.`, "success");
+                    await this.fetchProducts();
+                    await this.fetchSales();
+                    await this.fetchSalesSummary();
+                } else {
+                    this.syncState = 'error';
+                    this.showToast(data.error || "No se pudo sincronizar con el servidor web", "error");
+                }
+            } catch (err) {
+                console.error("Error en syncWithWeb:", err);
+                this.syncState = 'error';
+                this.showToast("Error de conexión al sincronizar con la web online", "error");
+            } finally {
+                this.isSyncing = false;
+                this.$nextTick(() => {
+                    if (window.lucide) lucide.createIcons();
+                });
+            }
+        },
+
+        async uploadFullDatabaseToWeb() {
+            if (this.isSyncing) return;
+            if (!confirm("¿Deseas enviar una copia COMPLETA de tu base local a la web online? Esto actualizará todos los productos, precios, costos y ventas de la web.")) {
+                return;
+            }
+
+            this.isSyncing = true;
+            this.syncState = 'syncing';
+            this.showToast("Transfiriendo base de datos completa a la web...", "info");
+
+            try {
+                const res = await fetch('/api/sync/trigger-full-upload', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    this.lastSyncTime = data.timestamp;
+                    this.syncState = 'synced';
+                    localStorage.setItem('last_sync_time', data.timestamp);
+                    this.showToast(data.message, "success");
+                } else {
+                    this.syncState = 'error';
+                    this.showToast(data.error || "Error al transferir base completa a la web", "error");
+                }
+            } catch (err) {
+                console.error("Error en uploadFullDatabaseToWeb:", err);
+                this.syncState = 'error';
+                this.showToast("Error de red al transferir base a la web online", "error");
+            } finally {
+                this.isSyncing = false;
+                this.$nextTick(() => {
+                    if (window.lucide) lucide.createIcons();
+                });
             }
         }
     }));

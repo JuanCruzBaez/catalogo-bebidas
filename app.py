@@ -167,7 +167,8 @@ def api_public_info():
         "hours": "Lunes a Sábados de 09:30 a 21:30 hs",
         "delivery_info": "Envíos a domicilio por Lanús",
         "wholesale_threshold": 100000,
-        "wholesale_condition": "Precios mayoristas a partir de los $100.000"
+        "wholesale_condition": "Precios mayoristas a partir de los $100.000",
+        "website_url": "https://bebidas-25-de-mayo.com.ar"
     })
 
 # ----------------- API COMBOS (GESTIÓN ADMIN) -----------------

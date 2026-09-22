@@ -5,17 +5,19 @@ import json
 import socket
 import webbrowser
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (
-    Flask, render_template, request, jsonify, send_file, send_from_directory, redirect, url_for
+    Flask, render_template, request, jsonify, send_file, send_from_directory, redirect, url_for, session
 )
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 import database
 import pdf_generator
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'catalogo-bebidas-secret-2026'
+app.permanent_session_lifetime = timedelta(days=14)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB max upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -25,6 +27,88 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# ----------------- AUTENTICACIÓN Y SEGURIDAD ADMIN -----------------
+
+@app.before_request
+def require_admin_auth():
+    path = request.path
+    
+    # Rutas públicas (clientes, fotos, estilos y login)
+    if (
+        path in ['/', '/tienda', '/login', '/logout'] or
+        path.startswith('/static/') or
+        path.startswith('/uploads/') or
+        path.startswith('/api/public/')
+    ):
+        return None
+        
+    # Cualquier otra ruta (panel de stock, costos, ventas POS, gestión interna) requiere ser admin
+    if not session.get('is_admin'):
+        if path.startswith('/api/'):
+            return jsonify({
+                "error": "Acceso restringido. Inicie sesión como administrador.",
+                "login_url": url_for('login')
+            }), 401
+        return redirect(url_for('login', next=path))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('is_admin'):
+        return redirect(url_for('admin'))
+        
+    error = None
+    if request.method == 'POST':
+        password = (request.form.get('password') or '').strip()
+        settings = database.get_all_settings()
+        stored_hash = settings.get('admin_password_hash')
+        env_pass = os.environ.get('ADMIN_PASSWORD')
+        
+        authenticated = False
+        if env_pass and password == env_pass:
+            authenticated = True
+        elif stored_hash:
+            if check_password_hash(stored_hash, password):
+                authenticated = True
+        else:
+            default_pass = settings.get('admin_password', '25demayo2026')
+            if password == default_pass:
+                authenticated = True
+                
+        if authenticated:
+            session['is_admin'] = True
+            session.permanent = True
+            next_url = request.args.get('next')
+            if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+                return redirect(next_url)
+            return redirect(url_for('admin'))
+        else:
+            error = 'Contraseña incorrecta. Por favor intente nuevamente.'
+            
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('is_admin', None)
+    return redirect(url_for('login'))
+
+@app.route('/api/admin/change-password', methods=['POST'])
+def api_change_password():
+    if not session.get('is_admin'):
+        return jsonify({"error": "No autorizado"}), 401
+        
+    data = request.get_json() or {}
+    new_password = (data.get('new_password') or '').strip()
+    
+    if len(new_password) < 4:
+        return jsonify({"error": "La contraseña debe tener al menos 4 caracteres"}), 400
+        
+    p_hash = generate_password_hash(new_password)
+    database.update_settings({
+        "admin_password_hash": p_hash,
+        "admin_password": new_password
+    })
+    return jsonify({"success": True, "message": "Contraseña de administrador actualizada correctamente"})
 
 # ----------------- RUTAS DE VISTA Y ESTÁTICOS -----------------
 

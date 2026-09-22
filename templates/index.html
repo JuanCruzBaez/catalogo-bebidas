@@ -160,6 +160,12 @@
                         <span class="hidden sm:inline">Nuevo Producto</span>
                     </button>
 
+                    <!-- Botón Cerrar Sesión Administrador -->
+                    <a href="/logout" title="Cerrar Sesión de Administrador" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 hover:text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center space-x-1.5 transition-all shadow-sm">
+                        <i data-lucide="log-out" class="w-4 h-4 text-rose-400"></i>
+                        <span class="hidden xl:inline">Salir</span>
+                    </a>
+
                 </div>
             </div>
         </div>
@@ -187,6 +193,9 @@
         >
             🏷️ Categorías (<span x-text="totalCategoriesCount"></span>)
         </button>
+        <a href="/logout" title="Cerrar Sesión" class="text-rose-400 hover:text-rose-300 flex items-center space-x-1 pb-1">
+            <span>🚪 Salir</span>
+        </a>
     </div>
 
     <!-- CUERPO PRINCIPAL -->
@@ -1595,10 +1604,11 @@
 
             <!-- Tabs de configuración -->
             <div class="flex border-b border-neutral-800 bg-neutral-950 px-6 space-x-4 overflow-x-auto text-xs font-bold">
-                <button @click="settingsTab = 'textos'" :class="settingsTab === 'textos' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Textos y Portada</button>
-                <button @click="settingsTab = 'contacto'" :class="settingsTab === 'contacto' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Contacto y Pedidos</button>
-                <button @click="settingsTab = 'logo'" :class="settingsTab === 'logo' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Logo Oficial</button>
-                <button @click="settingsTab = 'mantenimiento'" :class="settingsTab === 'mantenimiento' ? 'text-rose-400 border-b-2 border-rose-500 py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Base de Datos</button>
+                <button type="button" @click="settingsTab = 'textos'" :class="settingsTab === 'textos' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Textos y Portada</button>
+                <button type="button" @click="settingsTab = 'contacto'" :class="settingsTab === 'contacto' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Contacto y Pedidos</button>
+                <button type="button" @click="settingsTab = 'logo'" :class="settingsTab === 'logo' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Logo Oficial</button>
+                <button type="button" @click="settingsTab = 'seguridad'" :class="settingsTab === 'seguridad' ? 'text-brand-gold border-b-2 border-brand-gold py-3' : 'text-slate-400 hover:text-slate-200 py-3'">🔒 Seguridad & Clave</button>
+                <button type="button" @click="settingsTab = 'mantenimiento'" :class="settingsTab === 'mantenimiento' ? 'text-rose-400 border-b-2 border-rose-500 py-3' : 'text-slate-400 hover:text-slate-200 py-3'">Base de Datos</button>
             </div>
 
             <form @submit.prevent="saveSettings()" class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -1713,6 +1723,49 @@
                             <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
                             <span>Restaurar 95 Productos de Ejemplo</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- TAB 5: SEGURIDAD Y CLAVE DE ACCESO ADMIN -->
+                <div x-show="settingsTab === 'seguridad'" class="space-y-4">
+                    <div class="p-5 bg-neutral-950 border border-neutral-800 rounded-xl space-y-4">
+                        <div class="flex items-center space-x-2 text-brand-gold font-bold text-sm">
+                            <i data-lucide="shield-check" class="w-5 h-5 text-brand-gold"></i>
+                            <span>Protección y Clave del Panel de Administrador</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Solo quienes conozcan esta contraseña podrán ingresar a la gestión de stock, modificar precios, ver los costos de proveedores y registrar ventas en el punto de venta (POS).
+                        </p>
+                        
+                        <div class="pt-2 border-t border-neutral-900 space-y-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Nueva Contraseña de Administrador:</label>
+                                <div class="flex items-center space-x-2">
+                                    <input 
+                                        type="password" 
+                                        x-model="newAdminPassword" 
+                                        placeholder="Ingresá una clave segura (ej: miClave2026)" 
+                                        class="flex-1 bg-black border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold"
+                                    >
+                                    <button 
+                                        type="button" 
+                                        @click="changeAdminPassword()" 
+                                        class="px-4 py-2 bg-brand-gold hover:bg-brand-goldDark text-slate-950 font-bold rounded-lg text-xs whitespace-nowrap shadow-md transition-all"
+                                    >
+                                        Actualizar Clave
+                                    </button>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-1">Mínimo 4 caracteres. La sesión se mantendrá iniciada en este dispositivo.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-neutral-900/60 p-3 rounded-lg border border-neutral-800 text-xs text-slate-400 flex items-center justify-between">
+                            <span>¿Deseas salir del panel ahora?</span>
+                            <a href="/logout" class="text-rose-400 hover:text-rose-300 font-bold inline-flex items-center space-x-1">
+                                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                                <span>Cerrar Sesión</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 

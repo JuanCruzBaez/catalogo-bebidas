@@ -21,6 +21,7 @@ document.addEventListener('alpine:init', () => {
         showBulkPriceModal: false,
         showPdfPreviewModal: false,
         showClearDbModal: false,
+        newAdminPassword: '',
         
         // Estado del Módulo de Ventas (Punto de Venta)
         salesSubView: 'pos', // 'pos' o 'history'
@@ -662,6 +663,29 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (err) {
                 this.showToast("Error al procesar el archivo", "error");
+            }
+        },
+
+        async changeAdminPassword() {
+            if (!this.newAdminPassword || this.newAdminPassword.trim().length < 4) {
+                this.showToast("La contraseña debe tener al menos 4 caracteres", "error");
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_password: this.newAdminPassword.trim() })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    this.showToast("¡Contraseña de administrador actualizada con éxito!");
+                    this.newAdminPassword = '';
+                } else {
+                    this.showToast(data.error || "Error al cambiar contraseña", "error");
+                }
+            } catch (e) {
+                this.showToast("Error de conexión al cambiar la contraseña", "error");
             }
         },
 

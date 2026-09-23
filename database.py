@@ -1408,7 +1408,11 @@ def get_sync_export_payload(since_sale_id=0):
     cursor.execute("SELECT * FROM categories ORDER BY id ASC")
     categories = [dict(r) for r in cursor.fetchall()]
     
-    # 4. Configuraciones generales
+    # 4. Combos
+    cursor.execute("SELECT * FROM combos ORDER BY id ASC")
+    combos = [dict(r) for r in cursor.fetchall()]
+
+    # 5. Configuraciones generales
     cursor.execute("SELECT key, value FROM settings")
     settings = {r['key']: r['value'] for r in cursor.fetchall()}
     
@@ -1419,6 +1423,7 @@ def get_sync_export_payload(since_sale_id=0):
         "sale_items": sale_items,
         "products": products,
         "categories": categories,
+        "combos": combos,
         "settings": settings
     }
 
@@ -1442,7 +1447,7 @@ def apply_sync_payload(payload):
                 icon = excluded.icon
         """, (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('icon', '')))
         
-    # 2. Sincronizar Productos (Precios, Stock, Costos)
+    # 2. Sincronizar Productos (Precios, Stock, Costos, Imágenes)
     products = payload.get('products', [])
     for p in products:
         cursor.execute("""
@@ -1460,6 +1465,7 @@ def apply_sync_payload(payload):
                 cost_price = excluded.cost_price,
                 supplier = excluded.supplier,
                 profit_margin_target = excluded.profit_margin_target,
+                image_path = excluded.image_path,
                 stock = excluded.stock,
                 is_active = excluded.is_active,
                 is_featured = excluded.is_featured
@@ -1472,6 +1478,32 @@ def apply_sync_payload(payload):
             int(p.get('is_active', 1) or 0), int(p.get('is_featured', 0) or 0)
         ))
         updated_products += 1
+
+    # 3. Sincronizar Combos
+    combos = payload.get('combos', [])
+    for cmb in combos:
+        cursor.execute("""
+            INSERT INTO combos (
+                id, name, description, badge, price, regular_price,
+                image_path, items_json, is_active, order_index
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                badge = excluded.badge,
+                price = excluded.price,
+                regular_price = excluded.regular_price,
+                image_path = excluded.image_path,
+                items_json = excluded.items_json,
+                is_active = excluded.is_active,
+                order_index = excluded.order_index
+        """, (
+            cmb.get('id'), cmb.get('name'), cmb.get('description', ''),
+            cmb.get('badge', ''), float(cmb.get('price', 0) or 0),
+            float(cmb.get('regular_price', 0) or 0), str(cmb.get('image_path', '') or ''),
+            str(cmb.get('items_json', '[]') or '[]'), int(cmb.get('is_active', 1) or 0),
+            int(cmb.get('order_index', 0) or 0)
+        ))
 
     # 3. Sincronizar Ventas (sales)
     sales = payload.get('sales', [])

@@ -803,6 +803,25 @@ def api_sync_upload_db():
     except Exception as e:
         return jsonify({"error": f"Error al reemplazar base de datos: {str(e)}"}), 500
 
+@app.route('/api/sync/upload-file', methods=['POST'])
+def api_sync_upload_file():
+    """Recibe un archivo multimedia (imagen de producto o combo) y lo guarda en uploads/"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No se recibió archivo"}), 400
+    file = request.files['file']
+    subfolder = request.form.get('subfolder', '').strip()
+    if not file or not file.filename:
+        return jsonify({"error": "Nombre de archivo inválido"}), 400
+    
+    filename = secure_filename(file.filename)
+    if subfolder:
+        target_dir = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(subfolder))
+    else:
+        target_dir = app.config['UPLOAD_FOLDER']
+    os.makedirs(target_dir, exist_ok=True)
+    file.save(os.path.join(target_dir, filename))
+    return jsonify({"success": True, "filename": filename, "subfolder": subfolder})
+
 @app.route('/api/sync/download-db', methods=['GET'])
 def api_sync_download_db():
     """Permite descargar el archivo catalogo.db actual"""

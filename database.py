@@ -269,13 +269,13 @@ def init_db():
                 3
             ),
             (
-                "Combo Vodka Skyy + 2 Speed XL",
-                "1 Vodka Skyy 700ml + 2 Speed Unlimited XL 500ml",
+                "Combo Vodka Skyy Saborizado + 3 Speed XL",
+                "1 Vodka Skyy Saborizado 700ml + 3 Speed Unlimited XL 500ml",
                 "🍹 PREVIA CLÁSICA",
                 17500.0,
                 19800.0,
                 "uploads/combos/combo_skyy_speed.png",
-                json.dumps([{"name": "Vodka Skyy 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 2}]),
+                json.dumps([{"name": "Vodka Skyy Saborizado 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
                 1,
                 4
             ),

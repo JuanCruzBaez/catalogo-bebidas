@@ -1389,8 +1389,15 @@ def get_sync_export_payload(since_sale_id=0):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Ventas nuevas posteriores a since_sale_id
-    cursor.execute("SELECT * FROM sales WHERE id > ? ORDER BY id ASC", (since_sale_id,))
+    # 1. Ventas nuevas posteriores a since_sale_id o ventas recientes (para sincronizar anulaciones y estados)
+    if since_sale_id > 0:
+        cursor.execute("""
+            SELECT * FROM sales 
+            WHERE id > ? OR id IN (SELECT id FROM sales ORDER BY id DESC LIMIT 100)
+            ORDER BY id ASC
+        """, (since_sale_id,))
+    else:
+        cursor.execute("SELECT * FROM sales ORDER BY id ASC")
     sales = [dict(r) for r in cursor.fetchall()]
     
     sale_ids = [s['id'] for s in sales]
@@ -1505,16 +1512,29 @@ def apply_sync_payload(payload):
             int(cmb.get('order_index', 0) or 0)
         ))
 
-    # 3. Sincronizar Ventas (sales)
+    # 3. Sincronizar Ventas (sales) y propagar anulaciones/cambios de estado
     sales = payload.get('sales', [])
     for s in sales:
         cursor.execute("""
-            INSERT OR IGNORE INTO sales (
+            INSERT INTO sales (
                 id, seller_name, price_type, payment_method, notes,
                 subtotal_amount, surcharge_pct, surcharge_amount,
                 total_amount, total_cost, total_profit, total_items,
                 status, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                seller_name = excluded.seller_name,
+                price_type = excluded.price_type,
+                payment_method = excluded.payment_method,
+                notes = excluded.notes,
+                subtotal_amount = excluded.subtotal_amount,
+                surcharge_pct = excluded.surcharge_pct,
+                surcharge_amount = excluded.surcharge_amount,
+                total_amount = excluded.total_amount,
+                total_cost = excluded.total_cost,
+                total_profit = excluded.total_profit,
+                total_items = excluded.total_items,
+                status = excluded.status
         """, (
             s.get('id'), s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
             s.get('payment_method', 'Efectivo'), s.get('notes', ''),

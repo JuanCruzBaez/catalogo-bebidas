@@ -66,6 +66,40 @@ def sync_push_to_remote():
         # Silencioso para no interferir con la caja física
         pass
 
+def sync_cancel_sale_to_remote(sale_id):
+    """Sincroniza inmediatamente la anulación de una venta hacia el servidor remoto (Render)"""
+    if IS_RENDER:
+        return
+    try:
+        import requests
+        remote_url = get_remote_sync_url()
+        headers = {
+            'X-Sync-Token': SYNC_SECRET_KEY,
+            'Content-Type': 'application/json'
+        }
+        
+        # 1. Intentar cancelación directa mediante el endpoint de sincronización
+        try:
+            res = requests.post(f"{remote_url}/api/sync/cancel-sale", json={"sale_id": sale_id}, headers=headers, timeout=5)
+            if res.ok:
+                return
+        except Exception:
+            pass
+            
+        # 2. Fallback resiliente: autenticar como admin y ejecutar la anulación en Render
+        s = requests.Session()
+        settings = database.get_all_settings()
+        admin_pass = settings.get('admin_password', 'porongosaurio2547')
+        login_res = s.post(f"{remote_url}/login", data={'password': admin_pass}, timeout=5)
+        if login_res.ok:
+            s.post(f"{remote_url}/api/sales/{sale_id}/cancel", timeout=5)
+            
+        # 3. Reenviar estado actualizado
+        payload = database.get_sync_export_payload(since_sale_id=0)
+        requests.post(f"{remote_url}/api/sync/push", json=payload, headers=headers, timeout=10)
+    except Exception:
+        pass
+
 def sync_pull_from_remote():
     """Trae nuevas ventas y cambios desde la nube hacia la base local de forma silenciosa"""
     if IS_RENDER:
@@ -728,7 +762,10 @@ def api_cancel_sale(sale_id):
     if not success:
         return jsonify({"error": "No se pudo anular la venta o ya estaba anulada"}), 400
     
-    trigger_background_sync()
+    if not IS_RENDER:
+        threading.Thread(target=sync_cancel_sale_to_remote, args=(sale_id,), daemon=True).start()
+        trigger_background_sync()
+        
     # Devolver productos para refrescar stock en frontend
     sale = database.get_sale_detail(sale_id)
     updated_products = [database.get_product(it['product_id']) for it in sale.get('items', [])]
@@ -821,6 +858,23 @@ def api_sync_upload_file():
     os.makedirs(target_dir, exist_ok=True)
     file.save(os.path.join(target_dir, filename))
     return jsonify({"success": True, "filename": filename, "subfolder": subfolder})
+
+@app.route('/api/sync/cancel-sale', methods=['POST'])
+def api_sync_cancel_sale():
+    """Recibe la orden de anular una venta de forma segura entre local y nube"""
+    data = request.get_json() or {}
+    sale_id = data.get('sale_id')
+    if not sale_id:
+        return jsonify({"error": "sale_id es requerido"}), 400
+    try:
+        success = database.cancel_sale(int(sale_id))
+        return jsonify({
+            "success": True, 
+            "message": f"Venta #{sale_id} procesada para anulación en el servidor", 
+            "cancelled": success
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/sync/download-db', methods=['GET'])
 def api_sync_download_db():

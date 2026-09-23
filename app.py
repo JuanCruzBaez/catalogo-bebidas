@@ -66,6 +66,35 @@ def sync_push_to_remote():
         # Silencioso para no interferir con la caja física
         pass
 
+def sync_pull_from_remote():
+    """Trae nuevas ventas y cambios desde la nube hacia la base local de forma silenciosa"""
+    if IS_RENDER:
+        return
+    try:
+        import requests
+        remote_url = get_remote_sync_url()
+        headers = {
+            'X-Sync-Token': SYNC_SECRET_KEY,
+            'Content-Type': 'application/json'
+        }
+        local_status = database.get_sync_status()
+        res = requests.get(
+            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}",
+            headers=headers,
+            timeout=8
+        )
+        if res.ok:
+            payload = res.json()
+            if payload.get('sales') or payload.get('products'):
+                database.apply_sync_payload(payload)
+    except Exception:
+        pass
+
+def trigger_background_pull():
+    """Lanza la sincronización de descarga en segundo plano sin demorar la respuesta"""
+    if not IS_RENDER:
+        threading.Thread(target=sync_pull_from_remote, daemon=True).start()
+
 # ----------------- AUTENTICACIÓN Y SEGURIDAD ADMIN -----------------
 
 @app.before_request
@@ -605,6 +634,7 @@ def api_restore_sample_database():
 
 @app.route('/api/sales', methods=['GET'])
 def api_get_sales():
+    trigger_background_pull()
     limit = request.args.get('limit', default=150, type=int)
     offset = request.args.get('offset', default=0, type=int)
     seller_name = request.args.get('seller_name', default=None)
@@ -710,6 +740,7 @@ def api_cancel_sale(sale_id):
 
 @app.route('/api/sales/summary', methods=['GET'])
 def api_get_sales_summary():
+    trigger_background_pull()
     date_filter = request.args.get('date', default=None)
     month_filter = request.args.get('month', default=None)
     summary = database.get_sales_summary(date_filter=date_filter, month_filter=month_filter)
@@ -717,6 +748,7 @@ def api_get_sales_summary():
 
 @app.route('/api/sales/profit-breakdown', methods=['GET'])
 def api_get_profit_breakdown():
+    trigger_background_pull()
     period = request.args.get('period', default='today')
     month = request.args.get('month', default=None)
     date = request.args.get('date', default=None)

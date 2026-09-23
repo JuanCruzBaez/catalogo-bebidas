@@ -139,6 +139,13 @@ document.addEventListener('alpine:init', () => {
             await this.fetchSalesSummary();
             await this.fetchProfitBreakdown();
             this.isLoading = false;
+
+            // Sincronización automática silenciosa si estamos en entorno local
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (isLocal) {
+                setTimeout(() => this.silentSync(), 2500);
+                setInterval(() => this.silentSync(), 45000);
+            }
         },
 
         showToast(message, type = 'success') {
@@ -1258,6 +1265,28 @@ document.addEventListener('alpine:init', () => {
         // =========================================================
         // MÉTODOS DE SINCRONIZACIÓN LOCAL <-> NUBE (WEB)
         // =========================================================
+        async silentSync() {
+            if (this.isSyncing) return;
+            try {
+                const res = await fetch('/api/sync/trigger', { method: 'POST' });
+                const data = await res.json();
+                if (data.success && (data.imported_sales > 0 || data.updated_products > 0)) {
+                    this.lastSyncTime = data.timestamp;
+                    this.syncState = 'synced';
+                    localStorage.setItem('last_sync_time', data.timestamp);
+                    await this.fetchProducts();
+                    await this.fetchSales();
+                    await this.fetchSalesSummary();
+                    await this.fetchProfitBreakdown();
+                    if (data.imported_sales > 0) {
+                        this.showToast(`Se descargaron ${data.imported_sales} ventas nuevas desde la web online`, "info");
+                    }
+                }
+            } catch (e) {
+                // Silencioso
+            }
+        },
+
         async syncWithWeb() {
             if (this.isSyncing) return;
             this.isSyncing = true;

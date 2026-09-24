@@ -113,14 +113,14 @@ def sync_pull_from_remote():
         }
         local_status = database.get_sync_status()
         res = requests.get(
-            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}",
+            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}&only_sales=1",
             headers=headers,
             timeout=8
         )
         if res.ok:
             payload = res.json()
-            if payload.get('sales') or payload.get('products'):
-                database.apply_sync_payload(payload)
+            if payload.get('sales'):
+                database.apply_sync_payload(payload, sync_catalog=False)
     except Exception:
         pass
 
@@ -819,7 +819,8 @@ def api_sync_push():
 def api_sync_pull():
     """Exporta el paquete de sincronización para que el otro extremo lo descargue"""
     since_sale_id = int(request.args.get('since_sale_id', 0))
-    payload = database.get_sync_export_payload(since_sale_id)
+    only_sales = request.args.get('only_sales', '0') in ['1', 'true', 'True']
+    payload = database.get_sync_export_payload(since_sale_id, only_sales=only_sales)
     return jsonify(payload)
 
 @app.route('/api/sync/upload-db', methods=['POST'])
@@ -934,14 +935,14 @@ def api_sync_trigger():
     # 4. Traer ventas que puedan haberse registrado en la web si las hubiera
     try:
         pull_res = requests.get(
-            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}",
+            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}&only_sales=1",
             headers=headers,
             timeout=15
         )
         if pull_res.ok:
             remote_payload = pull_res.json()
             if remote_payload.get('sales'):
-                database.apply_sync_payload(remote_payload)
+                database.apply_sync_payload(remote_payload, sync_catalog=False)
     except Exception:
         pass
 

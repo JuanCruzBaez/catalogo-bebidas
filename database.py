@@ -1395,7 +1395,7 @@ def get_sync_status():
         "server_time": get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
     }
 
-def get_sync_export_payload(since_sale_id=0):
+def get_sync_export_payload(since_sale_id=0, only_sales=False):
     """Genera el paquete de datos completo para sincronizar hacia el otro servidor"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1417,6 +1417,14 @@ def get_sync_export_payload(since_sale_id=0):
         placeholders = ','.join(['?'] * len(sale_ids))
         cursor.execute(f"SELECT * FROM sale_items WHERE sale_id IN ({placeholders}) ORDER BY id ASC", sale_ids)
         sale_items = [dict(r) for r in cursor.fetchall()]
+        
+    if only_sales:
+        conn.close()
+        return {
+            "status": get_sync_status(),
+            "sales": sales,
+            "sale_items": sale_items
+        }
         
     # 2. Estado actual de productos (stock, precios, costos, catálogo)
     cursor.execute("SELECT * FROM products ORDER BY id ASC")
@@ -1445,7 +1453,7 @@ def get_sync_export_payload(since_sale_id=0):
         "settings": settings
     }
 
-def apply_sync_payload(payload):
+def apply_sync_payload(payload, sync_catalog=True):
     """Aplica de manera segura el paquete de sincronización recibido"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1453,80 +1461,89 @@ def apply_sync_payload(payload):
     imported_sales = 0
     updated_products = 0
     
-    # 1. Sincronizar Categorías
-    categories = payload.get('categories', [])
-    for c in categories:
-        cursor.execute("""
-            INSERT INTO categories (id, name, order_index, icon)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                order_index = excluded.order_index,
-                icon = excluded.icon
-        """, (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('icon', '')))
-        
-    # 2. Sincronizar Productos (Precios, Stock, Costos, Imágenes)
-    products = payload.get('products', [])
-    for p in products:
-        cursor.execute("""
-            INSERT INTO products (
-                id, category_id, name, presentation, price_minorista, price_mayorista,
-                cost_price, supplier, profit_margin_target, image_path, order_index,
-                stock, is_active, is_featured
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                category_id = excluded.category_id,
-                name = excluded.name,
-                presentation = excluded.presentation,
-                price_minorista = excluded.price_minorista,
-                price_mayorista = excluded.price_mayorista,
-                cost_price = excluded.cost_price,
-                supplier = excluded.supplier,
-                profit_margin_target = excluded.profit_margin_target,
-                image_path = excluded.image_path,
-                stock = excluded.stock,
-                is_active = excluded.is_active,
-                is_featured = excluded.is_featured
-        """, (
-            p.get('id'), p.get('category_id'), p.get('name'), p.get('presentation', ''),
-            float(p.get('price_minorista', 0) or 0), float(p.get('price_mayorista', 0) or 0),
-            float(p.get('cost_price', 0) or 0), str(p.get('supplier', '') or ''),
-            float(p.get('profit_margin_target', 0) or 0), str(p.get('image_path', '') or ''),
-            int(p.get('order_index', 0) or 0), int(p.get('stock', 0) or 0),
-            int(p.get('is_active', 1) or 0), int(p.get('is_featured', 0) or 0)
-        ))
-        updated_products += 1
+    # Solo sincronizar catálogo completo (productos, categorías, combos) si sync_catalog es True
+    # (por ejemplo, cuando Local empuja hacia la nube). Al recibir de la nube en Local, sync_catalog es False
+    # para que NUNCA se sobreescriban precios, costos, proveedores o stock locales.
+    if sync_catalog:
+        # 1. Sincronizar Categorías
+        categories = payload.get('categories', [])
+        for c in categories:
+            cursor.execute('''
+                INSERT INTO categories (id, name, order_index, icon)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    order_index = excluded.order_index,
+                    icon = excluded.icon
+            ''', (c.get('id'), c.get('name'), c.get('order_index', 0), c.get('icon', '')))
+            
+        # 2. Sincronizar Productos (Precios, Stock, Costos, Imágenes)
+        products = payload.get('products', [])
+        for p in products:
+            cursor.execute('''
+                INSERT INTO products (
+                    id, category_id, name, presentation, price_minorista, price_mayorista,
+                    cost_price, supplier, profit_margin_target, image_path, order_index,
+                    stock, is_active, is_featured
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    category_id = excluded.category_id,
+                    name = excluded.name,
+                    presentation = excluded.presentation,
+                    price_minorista = excluded.price_minorista,
+                    price_mayorista = excluded.price_mayorista,
+                    cost_price = excluded.cost_price,
+                    supplier = excluded.supplier,
+                    profit_margin_target = excluded.profit_margin_target,
+                    image_path = excluded.image_path,
+                    stock = excluded.stock,
+                    is_active = excluded.is_active,
+                    is_featured = excluded.is_featured
+            ''', (
+                p.get('id'), p.get('category_id'), p.get('name'), p.get('presentation', ''),
+                float(p.get('price_minorista', 0) or 0), float(p.get('price_mayorista', 0) or 0),
+                float(p.get('cost_price', 0) or 0), str(p.get('supplier', '') or ''),
+                float(p.get('profit_margin_target', 0) or 0), str(p.get('image_path', '') or ''),
+                int(p.get('order_index', 0) or 0), int(p.get('stock', 0) or 0),
+                int(p.get('is_active', 1) or 0), int(p.get('is_featured', 0) or 0)
+            ))
+            updated_products += 1
 
-    # 3. Sincronizar Combos
-    combos = payload.get('combos', [])
-    for cmb in combos:
-        cursor.execute("""
-            INSERT INTO combos (
-                id, name, description, badge, price, regular_price,
-                image_path, items_json, is_active, order_index
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                description = excluded.description,
-                badge = excluded.badge,
-                price = excluded.price,
-                regular_price = excluded.regular_price,
-                image_path = excluded.image_path,
-                items_json = excluded.items_json,
-                is_active = excluded.is_active,
-                order_index = excluded.order_index
-        """, (
-            cmb.get('id'), cmb.get('name'), cmb.get('description', ''),
-            cmb.get('badge', ''), float(cmb.get('price', 0) or 0),
-            float(cmb.get('regular_price', 0) or 0), str(cmb.get('image_path', '') or ''),
-            str(cmb.get('items_json', '[]') or '[]'), int(cmb.get('is_active', 1) or 0),
-            int(cmb.get('order_index', 0) or 0)
-        ))
+        # 3. Sincronizar Combos
+        combos = payload.get('combos', [])
+        for cmb in combos:
+            cursor.execute('''
+                INSERT INTO combos (
+                    id, name, description, badge, price, regular_price,
+                    image_path, items_json, is_active, order_index
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    description = excluded.description,
+                    badge = excluded.badge,
+                    price = excluded.price,
+                    regular_price = excluded.regular_price,
+                    image_path = excluded.image_path,
+                    items_json = excluded.items_json,
+                    is_active = excluded.is_active,
+                    order_index = excluded.order_index
+            ''', (
+                cmb.get('id'), cmb.get('name'), cmb.get('description', ''),
+                cmb.get('badge', ''), float(cmb.get('price', 0) or 0),
+                float(cmb.get('regular_price', 0) or 0), str(cmb.get('image_path', '') or ''),
+                str(cmb.get('items_json', '[]') or '[]'), int(cmb.get('is_active', 1) or 0),
+                int(cmb.get('order_index', 0) or 0)
+            ))
 
-    # 3. Sincronizar Ventas (sales) y propagar anulaciones/cambios de estado
+    # 4. Sincronizar Ventas (sales) y propagar anulaciones/cambios de estado
     sales = payload.get('sales', [])
+    new_sale_ids = []
     for s in sales:
-        cursor.execute("""
+        sale_id = s.get('id')
+        cursor.execute('SELECT id, status FROM sales WHERE id = ?', (sale_id,))
+        existing = cursor.fetchone()
+        
+        cursor.execute('''
             INSERT INTO sales (
                 id, seller_name, price_type, payment_method, notes,
                 subtotal_amount, surcharge_pct, surcharge_amount,
@@ -1546,8 +1563,8 @@ def apply_sync_payload(payload):
                 total_profit = excluded.total_profit,
                 total_items = excluded.total_items,
                 status = excluded.status
-        """, (
-            s.get('id'), s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
+        ''', (
+            sale_id, s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
             s.get('payment_method', 'Efectivo'), s.get('notes', ''),
             float(s.get('subtotal_amount', 0) or 0), float(s.get('surcharge_pct', 0) or 0),
             float(s.get('surcharge_amount', 0) or 0), float(s.get('total_amount', 0) or 0),
@@ -1557,22 +1574,33 @@ def apply_sync_payload(payload):
         ))
         if cursor.rowcount > 0:
             imported_sales += 1
+            if not existing and s.get('status') == 'completed':
+                new_sale_ids.append(sale_id)
             
-    # 4. Sincronizar Items de Venta (sale_items)
+    # 5. Sincronizar Items de Venta (sale_items)
     items = payload.get('sale_items', [])
     for it in items:
-        cursor.execute("""
+        cursor.execute('''
             INSERT OR IGNORE INTO sale_items (
                 id, sale_id, product_id, product_name, presentation,
                 price_type, unit_price, cost_price, profit, quantity, subtotal
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        ''', (
             it.get('id'), it.get('sale_id'), it.get('product_id'),
             it.get('product_name', ''), it.get('presentation', ''),
             it.get('price_type', 'minorista'), float(it.get('unit_price', 0) or 0),
             float(it.get('cost_price', 0) or 0), float(it.get('profit', 0) or 0),
             int(it.get('quantity', 1) or 1), float(it.get('subtotal', 0) or 0)
         ))
+
+    # Si estamos en modo sync_catalog=False (ej. pull de ventas remotas a local),
+    # descontar stock únicamente para las ventas remotas genuinamente nuevas
+    if not sync_catalog and new_sale_ids:
+        for s_id in new_sale_ids:
+            cursor.execute('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', (s_id,))
+            for it_p_id, it_qty in cursor.fetchall():
+                if it_p_id and it_qty:
+                    cursor.execute('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', (it_qty, it_p_id))
 
     conn.commit()
     conn.close()
@@ -1583,6 +1611,7 @@ def apply_sync_payload(payload):
         "updated_products": updated_products,
         "synced_at": get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
     }
+
 
 def replace_db_from_bytes(data_bytes):
     """Reemplaza catalogo.db de forma atómica y segura con una copia binaria recibida"""

@@ -300,6 +300,17 @@ def init_db():
                 json.dumps([{"name": "Cerveza Heineken Latón 710ml", "qty": 6}]),
                 1,
                 6
+            ),
+            (
+                "Combo Vodka Skyy Jungle + 3 Speed XL",
+                "1 Vodka Skyy Jungle Edicion Especial 700ml + 3 Speed Unlimited XL 500ml",
+                "🌴 NUEVO COMBO",
+                23500.0,
+                27500.0,
+                "uploads/prod_1790193826_combo-skyy-jungle-speed.png",
+                json.dumps([{"name": "Vodka Skyy Jungle 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                1,
+                7
             )
         ]
         cursor.executemany("""

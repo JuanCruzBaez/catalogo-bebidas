@@ -95,6 +95,8 @@ def init_db():
         total_cost REAL NOT NULL DEFAULT 0.0,
         total_profit REAL NOT NULL DEFAULT 0.0,
         total_items INTEGER NOT NULL DEFAULT 0,
+        amount_paid REAL DEFAULT 0.0,
+        change_given REAL DEFAULT 0.0,
         status TEXT DEFAULT 'completed', -- 'completed', 'cancelled'
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -113,6 +115,10 @@ def init_db():
         cursor.execute("ALTER TABLE sales ADD COLUMN total_cost REAL DEFAULT 0.0")
     if "total_profit" not in sales_cols:
         cursor.execute("ALTER TABLE sales ADD COLUMN total_profit REAL DEFAULT 0.0")
+    if "amount_paid" not in sales_cols:
+        cursor.execute("ALTER TABLE sales ADD COLUMN amount_paid REAL DEFAULT 0.0")
+    if "change_given" not in sales_cols:
+        cursor.execute("ALTER TABLE sales ADD COLUMN change_given REAL DEFAULT 0.0")
 
     # Actualizar nombres antiguos de medios de pago si existen
     cursor.execute("""
@@ -311,6 +317,17 @@ def init_db():
                 json.dumps([{"name": "Vodka Skyy Jungle 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
                 1,
                 7
+            ),
+            (
+                "Combo Jaggermeister + 3 Speed XL",
+                "1 Jaggermeister 700ml + 3 Speed Unlimited XL 500ml",
+                "🦌 PREVIA PREMIUM",
+                40000.0,
+                44000.0,
+                "uploads/combos/combo_jaggermeister_speed.png",
+                json.dumps([{"name": "Jaggermeister 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                1,
+                8
             )
         ]
         cursor.executemany("""
@@ -886,9 +903,14 @@ def create_sale(sale_data, items_data):
         total_cost_acc = round(total_cost_acc, 2)
         total_profit = round(total - total_cost_acc, 2)
 
+        amount_paid = float(sale_data.get('amount_paid', 0.0) or 0.0)
+        change_given = float(sale_data.get('change_given', 0.0) or 0.0)
+        if payment_method == 'Efectivo' and amount_paid >= total and change_given <= 0.0:
+            change_given = round(amount_paid - total, 2)
+
         cursor.execute("""
-        INSERT INTO sales (seller_name, price_type, payment_method, notes, subtotal_amount, surcharge_pct, surcharge_amount, total_amount, total_cost, total_profit, total_items)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sales (seller_name, price_type, payment_method, notes, subtotal_amount, surcharge_pct, surcharge_amount, total_amount, total_cost, total_profit, total_items, amount_paid, change_given)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             sale_data.get('seller_name', 'General').strip() or 'General',
             sale_data.get('price_type', 'minorista'),
@@ -900,7 +922,9 @@ def create_sale(sale_data, items_data):
             total,
             total_cost_acc,
             total_profit,
-            int(sale_data.get('total_items', sum(it['quantity'] for it in processed_items)))
+            int(sale_data.get('total_items', sum(it['quantity'] for it in processed_items))),
+            amount_paid,
+            change_given
         ))
         sale_id = cursor.lastrowid
 
@@ -1005,12 +1029,16 @@ def update_sale(sale_id, update_data):
         UPDATE sales
         SET seller_name = ?, price_type = ?, payment_method = ?, notes = ?,
             subtotal_amount = ?, surcharge_pct = ?, surcharge_amount = ?,
-            total_amount = ?, total_cost = ?, total_profit = ?
+            total_amount = ?, total_cost = ?, total_profit = ?,
+            amount_paid = ?, change_given = ?
         WHERE id = ?
         """, (
             new_seller, new_price_type, new_payment_method, new_notes,
             subtotal_acc, surch_pct, surch_amt, total_amt,
-            total_cost_acc, total_profit, sale_id
+            total_cost_acc, total_profit,
+            float(update_data.get('amount_paid', sale['amount_paid'] if 'amount_paid' in sale.keys() else 0.0) or 0.0),
+            float(update_data.get('change_given', sale['change_given'] if 'change_given' in sale.keys() else 0.0) or 0.0),
+            sale_id
         ))
 
         conn.commit()
@@ -1548,8 +1576,9 @@ def apply_sync_payload(payload, sync_catalog=True):
                 id, seller_name, price_type, payment_method, notes,
                 subtotal_amount, surcharge_pct, surcharge_amount,
                 total_amount, total_cost, total_profit, total_items,
+                amount_paid, change_given,
                 status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 seller_name = excluded.seller_name,
                 price_type = excluded.price_type,
@@ -1562,6 +1591,8 @@ def apply_sync_payload(payload, sync_catalog=True):
                 total_cost = excluded.total_cost,
                 total_profit = excluded.total_profit,
                 total_items = excluded.total_items,
+                amount_paid = excluded.amount_paid,
+                change_given = excluded.change_given,
                 status = excluded.status
         ''', (
             sale_id, s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
@@ -1569,7 +1600,9 @@ def apply_sync_payload(payload, sync_catalog=True):
             float(s.get('subtotal_amount', 0) or 0), float(s.get('surcharge_pct', 0) or 0),
             float(s.get('surcharge_amount', 0) or 0), float(s.get('total_amount', 0) or 0),
             float(s.get('total_cost', 0) or 0), float(s.get('total_profit', 0) or 0),
-            int(s.get('total_items', 1) or 1), s.get('status', 'completed'),
+            int(s.get('total_items', 1) or 1),
+            float(s.get('amount_paid', 0) or 0), float(s.get('change_given', 0) or 0),
+            s.get('status', 'completed'),
             s.get('created_at')
         ))
         if cursor.rowcount > 0:

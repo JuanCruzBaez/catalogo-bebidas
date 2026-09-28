@@ -40,6 +40,7 @@ document.addEventListener('alpine:init', () => {
         salesCategory: 'all',
         cart: [],
         paymentMethod: 'Efectivo',
+        cashReceived: '', // Dinero con el que abona el cliente
         saleNotes: '',
         salesHistory: [],
         salesSummary: { 
@@ -826,6 +827,59 @@ document.addEventListener('alpine:init', () => {
             return this.cart.reduce((sum, it) => sum + it.quantity, 0);
         },
 
+        // Cálculo de Vuelto para cobro en Efectivo
+        get cashChange() {
+            const paid = parseFloat(this.cashReceived) || 0;
+            const total = this.cartTotal;
+            if (paid <= 0 || paid < total) return 0;
+            return Math.round((paid - total) * 100) / 100;
+        },
+
+        get isCashInsufficient() {
+            const paid = parseFloat(this.cashReceived) || 0;
+            return paid > 0 && paid < this.cartTotal;
+        },
+
+        get suggestedCashBills() {
+            const t = this.cartTotal;
+            if (t <= 0) return [1000, 2000, 5000, 10000, 20000];
+            const standardBills = [1000, 2000, 5000, 10000, 20000, 50000, 100000];
+            const higherBills = standardBills.filter(b => b > t).slice(0, 3);
+            const list = [];
+            
+            // Si el monto no es múltiplo de 1000, sugerir el siguiente redondeo a 1000
+            const next1000 = Math.ceil(t / 1000) * 1000;
+            if (next1000 > t && !higherBills.includes(next1000)) {
+                list.push(next1000);
+            }
+
+            // Siguiente múltiplo de 5000 si aplica
+            const next5000 = Math.ceil(t / 5000) * 5000;
+            if (next5000 > t && !higherBills.includes(next5000) && !list.includes(next5000)) {
+                list.push(next5000);
+            }
+
+            list.push(...higherBills);
+            return list.sort((a, b) => a - b).slice(0, 3);
+        },
+
+        setExactCash() {
+            this.cashReceived = this.cartTotal > 0 ? this.cartTotal : '';
+        },
+
+        setCashReceived(amount) {
+            this.cashReceived = amount;
+        },
+
+        addCashReceived(amount) {
+            const cur = parseFloat(this.cashReceived) || 0;
+            this.cashReceived = cur + amount;
+        },
+
+        clearCashReceived() {
+            this.cashReceived = '';
+        },
+
         get currentPeriodSummary() {
             if (!this.salesSummary) return { total: 0, count: 0, items: 0, average: 0 };
             return this.salesSummary[this.salesPeriod] || { total: 0, count: 0, items: 0, average: 0 };
@@ -995,6 +1049,7 @@ document.addEventListener('alpine:init', () => {
         clearCart() {
             this.cart = [];
             this.saleNotes = '';
+            this.cashReceived = '';
         },
 
         async submitSale() {
@@ -1006,6 +1061,13 @@ document.addEventListener('alpine:init', () => {
             const seller = (this.sellerName || '').trim() || 'General';
             localStorage.setItem('pos_seller_name', seller);
             this.sellerName = seller;
+
+            const paid = parseFloat(this.cashReceived) || 0;
+            if (this.paymentMethod === 'Efectivo' && paid > 0 && paid < this.cartTotal) {
+                this.showToast(`El dinero abonado (${this.formatCurrency(paid)}) es menor al total (${this.formatCurrency(this.cartTotal)})`, "error");
+                return;
+            }
+            const change = (this.paymentMethod === 'Efectivo' && paid >= this.cartTotal) ? (paid - this.cartTotal) : 0;
 
             this.isSubmittingSale = true;
             try {
@@ -1019,6 +1081,8 @@ document.addEventListener('alpine:init', () => {
                     surcharge_amount: this.cartSurchargeAmount,
                     total_amount: this.cartTotal,
                     total_items: this.cartTotalItems,
+                    amount_paid: this.paymentMethod === 'Efectivo' ? paid : 0,
+                    change_given: this.paymentMethod === 'Efectivo' ? change : 0,
                     items: this.cart.map(it => ({
                         product_id: it.product_id,
                         product_name: it.name,
@@ -1055,6 +1119,7 @@ document.addEventListener('alpine:init', () => {
                 this.lastCompletedSale = data.sale;
                 this.showSaleSuccessModal = true;
                 this.clearCart();
+                this.cashReceived = '';
                 this.showToast("¡Venta registrada y stock descontado con éxito!", "success");
 
                 // Actualizar resumen e historial

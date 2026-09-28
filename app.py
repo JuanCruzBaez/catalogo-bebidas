@@ -17,6 +17,7 @@ import pdf_generator
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'catalogo-bebidas-secret-2026'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.permanent_session_lifetime = timedelta(days=14)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB max upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
@@ -717,7 +718,9 @@ def api_create_sale():
             'surcharge_pct': float(data.get('surcharge_pct', 0.0) or 0.0),
             'surcharge_amount': float(data.get('surcharge_amount', 0.0) or 0.0),
             'total_amount': total_val,
-            'total_items': data.get('total_items', sum(int(it.get('quantity', 1)) for it in items))
+            'total_items': data.get('total_items', sum(int(it.get('quantity', 1)) for it in items)),
+            'amount_paid': float(data.get('amount_paid', 0.0) or 0.0),
+            'change_given': float(data.get('change_given', 0.0) or 0.0)
         }
         sale_id = database.create_sale(sale_data, items)
         

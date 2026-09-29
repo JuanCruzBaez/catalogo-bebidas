@@ -339,6 +339,204 @@ def init_db():
                 json.dumps([{"name": "Coca-Cola 2.25L", "qty": 8}]),
                 1,
                 9
+            ),
+            (
+                "Combo Jack Daniel's N°7 + 3 Speed XL",
+                "1 Whisky Jack Daniel's Old No.7 1L + 3 Speed Unlimited XL 500ml",
+                "🥃 WHISKEY PREMIUM",
+                57000.0,
+                63000.0,
+                "uploads/combos/combo_jackdaniels_speed.png",
+                json.dumps([{"name": "Whiskey Jack Daniel's No.7 1L", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                1,
+                10
+            ),
+            (
+                "Combo Jack Daniel's Apple + 3 Speed XL",
+                "1 Whisky Jack Daniel's Tennessee Apple 1L + 3 Speed Unlimited XL 500ml",
+                "🍏 TENDENCIA APPLE",
+                57000.0,
+                63000.0,
+                "uploads/combos/combo_jackapple_speed.png",
+                json.dumps([{"name": "Whiskey Jack Daniel's Apple 1L", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                1,
+                11
+            ),
+            (
+                "Combo JW Black Label + 3 Speed XL",
+                "1 Whisky Johnnie Walker Black Label 1L + 3 Speed Unlimited XL 500ml",
+                "🖤 BLACK LABEL EXCLUSIVE",
+                64000.0,
+                71000.0,
+                "uploads/combos/combo_jw_black_speed.png",
+                json.dumps([{"name": "Whisky JW Black Label 1L", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                1,
+                12
+            ),
+            (
+                "Combo Champagne Federico de Alvear + 2 Speed XL",
+                "1 Champagne Federico de Alvear 750ml + 2 Speed Unlimited XL 500ml",
+                "🥂 PREVIA Y BRINDIS",
+                9500.0,
+                11500.0,
+                "uploads/combos/combo_federico_speed.png",
+                json.dumps([{"name": "Champagne Federico de Alvear 750ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 2}]),
+                1,
+                13
+            ),
+            (
+                "Combo Pack Imperial Lager x6 Latas",
+                "6 Latas Cerveza Imperial Lager 473ml",
+                "🍺 PACK CERVEZAS",
+                12500.0,
+                14500.0,
+                "uploads/combos/combo_imperial_lager_x6.png",
+                json.dumps([{"name": "Cerveza Imperial Lager Lata 473ml", "qty": 6}]),
+                1,
+                14
+            ),
+            (
+                "Combo Pack Imperial APA x6 Latas",
+                "6 Latas Cerveza Imperial APA 473ml",
+                "🌿 ESPECIAL APA",
+                14000.0,
+                16000.0,
+                "uploads/combos/combo_imperial_apa_x6.png",
+                json.dumps([{"name": "Cerveza Imperial APA Lata 473ml", "qty": 6}]),
+                1,
+                15
+            ),
+            (
+                "Combo Pack Corona Lata x6 Latas",
+                "6 Latas Cerveza Corona 473ml",
+                "👑 PACK CORONA",
+                14500.0,
+                17000.0,
+                "uploads/combos/combo_corona_lata_x6.png",
+                json.dumps([{"name": "Cerveza Corona Lata 473ml", "qty": 6}]),
+                1,
+                16
+            ),
+            (
+                "Combo Pack Heineken x6 Latas 473ml",
+                "6 Latas Cerveza Heineken 473ml",
+                "⭐ PACK HEINEKEN",
+                16500.0,
+                19000.0,
+                "uploads/combos/combo_heineken_473_x6.png",
+                json.dumps([{"name": "Cerveza Heineken Lata 473ml", "qty": 6}]),
+                1,
+                17
+            ),
+            (
+                "Combo Pack Miller x6 Latas",
+                "6 Latas Cerveza Miller Genuine Draft 473ml",
+                "✨ PACK MILLER",
+                12500.0,
+                14500.0,
+                "uploads/combos/combo_miller_x6.png",
+                json.dumps([{"name": "Cerveza Miller Lata 473ml", "qty": 6}]),
+                1,
+                18
+            ),
+            (
+                "Combo Pack Quilmes Clásica x6 Latas 473ml",
+                "6 Latas Cerveza Quilmes Clásica 473ml",
+                "🇦🇷 CLÁSICA ARGENTINA",
+                12500.0,
+                14500.0,
+                "uploads/combos/combo_quilmes_473_x6.png",
+                json.dumps([{"name": "Cerveza Quilmes Lata 473ml", "qty": 6}]),
+                1,
+                19
+            ),
+            (
+                "Combo Pack Quilmes x6 Latones 710ml",
+                "6 Latones Cerveza Quilmes Clásica 710ml",
+                "📦 PACK LATONES",
+                17000.0,
+                20000.0,
+                "uploads/combos/combo_quilmes_710_x6.png",
+                json.dumps([{"name": "Cerveza Quilmes Latón 710ml", "qty": 6}]),
+                1,
+                20
+            ),
+            (
+                "Combo Pack Quilmes Stout x6 Latas",
+                "6 Latas Cerveza Quilmes Stout 473ml",
+                "☕ SABOR TOSTADO",
+                13000.0,
+                15500.0,
+                "uploads/combos/combo_quilmes_stout_x6.png",
+                json.dumps([{"name": "Cerveza Quilmes Stout Lata 473ml", "qty": 6}]),
+                1,
+                21
+            ),
+            (
+                "Combo Pack Stella Artois x6 Botellas 710ml",
+                "6 Botellas Cerveza Stella Artois 710ml",
+                "🍾 STELLA BOTELLA",
+                24500.0,
+                28000.0,
+                "uploads/combos/combo_stella_botella_x6.png",
+                json.dumps([{"name": "Cerveza Stella Artois Botella 710ml", "qty": 6}]),
+                1,
+                22
+            ),
+            (
+                "Combo Pack Stella Artois x6 Latas 473ml",
+                "6 Latas Cerveza Stella Artois 473ml",
+                "⭐ STELLA LATA",
+                15000.0,
+                17500.0,
+                "uploads/combos/combo_stella_473_x6.png",
+                json.dumps([{"name": "Cerveza Stella Artois Lata 473ml", "qty": 6}]),
+                1,
+                23
+            ),
+            (
+                "Combo Pack Stella Artois Noire x6 Latas",
+                "6 Latas Cerveza Stella Artois Noire Negra 473ml",
+                "🖤 STELLA NOIRE",
+                15000.0,
+                17500.0,
+                "uploads/combos/combo_stella_noire_x6.png",
+                json.dumps([{"name": "Cerveza Stella Artois Noire Lata 473ml", "qty": 6}]),
+                1,
+                24
+            ),
+            (
+                "Combo Pack Stella Artois x6 Latones 710ml",
+                "6 Latones Cerveza Stella Artois 710ml",
+                "⭐ LATONES STELLA",
+                21500.0,
+                25000.0,
+                "uploads/combos/combo_stella_710_x6.png",
+                json.dumps([{"name": "Cerveza Stella Artois Latón 710ml", "qty": 6}]),
+                1,
+                25
+            ),
+            (
+                "Combo Pack Schneider x6 Latas 473ml",
+                "6 Latas Cerveza Schneider 473ml",
+                "🍻 PACK ECONÓMICO",
+                11000.0,
+                13000.0,
+                "uploads/combos/combo_schneider_473_x6.png",
+                json.dumps([{"name": "Cerveza Schneider Lata 473ml", "qty": 6}]),
+                1,
+                26
+            ),
+            (
+                "Combo Pack Warsteiner x6 Latas 473ml",
+                "6 Latas Cerveza Warsteiner Premium 473ml",
+                "🇩🇪 TRADICIÓN ALEMANA",
+                13000.0,
+                15000.0,
+                "uploads/combos/combo_warsteiner_473_x6.png",
+                json.dumps([{"name": "Cerveza Warsteiner Lata 473ml", "qty": 6}]),
+                1,
+                27
             )
         ]
         cursor.executemany("""

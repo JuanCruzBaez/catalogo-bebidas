@@ -291,7 +291,7 @@ def init_db():
                 "🍺 PACK FIESTA",
                 31000.0,
                 34000.0,
-                "uploads/combos/corona_710.png",
+                "uploads/combos/combo_corona_x6.png",
                 json.dumps([{"name": "Cerveza Corona Botella 710ml", "qty": 6}]),
                 1,
                 5
@@ -302,7 +302,7 @@ def init_db():
                 "⭐ PREMIUM BEER",
                 26500.0,
                 29000.0,
-                "uploads/combos/heineken_710.png",
+                "uploads/combos/combo_heineken_x6.png",
                 json.dumps([{"name": "Cerveza Heineken Latón 710ml", "qty": 6}]),
                 1,
                 6
@@ -328,6 +328,17 @@ def init_db():
                 json.dumps([{"name": "Jaggermeister 700ml", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
                 1,
                 8
+            ),
+            (
+                "Combo Pack Coca-Cola 2.25L x8",
+                "Pack x8 unidades de Coca-Cola Sabor Original 2.25L",
+                "🥤 PACK MAYORISTA",
+                38000.0,
+                42000.0,
+                "uploads/combos/combo_cocacola_x8.png",
+                json.dumps([{"name": "Coca-Cola 2.25L", "qty": 8}]),
+                1,
+                9
             )
         ]
         cursor.executemany("""

@@ -1625,6 +1625,15 @@ input:focus, select:focus, textarea:focus {
     justify-content: center;
 }
 
+/* Elementos móviles exclusivos (ocultos por defecto en pantallas de PC) */
+.mobile-shelf-hint {
+    display: none;
+}
+
+.mobile-bottom-bar {
+    display: none;
+}
+
 /* ----------------- TOAST NOTIFICACIÓN ----------------- */
 .toast-notification {
     position: fixed;
@@ -1745,42 +1754,559 @@ input:focus, select:focus, textarea:focus {
 }
 
 @media (max-width: 768px) {
+    /* Header compacto */
     .header-container {
         flex-wrap: wrap;
+        gap: 10px;
+        padding: 8px 12px;
     }
 
     .brand-logo {
         order: 1;
     }
 
+    .brand-logo img {
+        height: 38px;
+    }
+
     .header-actions {
         order: 2;
+        gap: 8px;
+    }
+
+    .btn-header-cart {
+        padding: 7px 12px;
+        font-size: 13px;
     }
 
     .search-box {
         order: 3;
         max-width: 100%;
         width: 100%;
+        margin-top: 2px;
+    }
+
+    .search-box input {
+        padding: 9px 12px 9px 36px;
+        font-size: 13.5px;
+    }
+
+    .search-icon {
+        left: 12px;
+        font-size: 14px;
     }
 
     .btn-whatsapp-header .whatsapp-label {
         display: none;
     }
 
-    .floating-cart-btn {
-        display: flex;
+    .btn-whatsapp-header {
+        padding: 8px 10px;
+        border-radius: var(--radius-full);
     }
 
+    /* Barra superior de anuncios */
     .top-bar-content {
         justify-content: center;
         text-align: center;
+        font-size: 11.5px;
+        padding: 5px 10px;
+    }
+
+    .top-bar-pill {
+        font-size: 10px;
+        padding: 2px 7px;
+    }
+
+    /* Carrusel móvil adaptado */
+    .carousel-section {
+        padding: 12px 0 6px 0;
+    }
+
+    .carousel-container {
+        border-radius: var(--radius-md);
+        min-height: auto;
+    }
+
+    .carousel-slide {
+        padding: 16px 14px 22px 14px;
+    }
+
+    .slide-badge {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+
+    .slide-title {
+        font-size: 22px;
+        line-height: 1.15;
+        margin: 6px 0;
+    }
+
+    .slide-desc {
+        font-size: 12px;
+        line-height: 1.35;
+        margin-bottom: 12px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .slide-price {
+        font-size: 24px;
+    }
+
+    .slide-regular-price {
+        font-size: 12px;
+    }
+
+    .slide-savings {
+        font-size: 10.5px;
+        padding: 2px 6px;
+    }
+
+    .slide-image-box {
+        height: 155px;
+        margin-bottom: 6px;
+    }
+
+    .carousel-nav-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+
+    .carousel-nav-btn.prev { left: 6px; }
+    .carousel-nav-btn.next { right: 6px; }
+
+    /* Banner de garantías: 2x2 para no ocupar scroll innecesario */
+    .trust-banner-section {
+        padding: 12px 0 6px 0;
     }
 
     .trust-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
     }
 
+    .trust-card {
+        padding: 10px 8px;
+        gap: 8px;
+    }
+
+    .trust-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .trust-text h4 {
+        font-size: 11px;
+    }
+
+    .trust-text p {
+        font-size: 10px;
+        line-height: 1.25;
+    }
+
+    /* SECCIÓN COMBOS: Shelf deslizante horizontal (estilo La Barra CCU) */
+    .combos-section {
+        padding: 18px 0 10px 0;
+    }
+
+    .combos-section .section-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .section-title {
+        font-size: 24px;
+    }
+
+    .section-subtitle {
+        font-size: 12.5px;
+        margin-top: 2px;
+    }
+
+    .mobile-shelf-hint {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--brand-gold);
+        background: rgba(245, 197, 24, 0.1);
+        border: 1px solid rgba(245, 197, 24, 0.25);
+        padding: 3px 8px;
+        border-radius: var(--radius-full);
+        white-space: nowrap;
+    }
+
+    .combos-grid {
+        display: flex !important;
+        overflow-x: auto !important;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 12px;
+        padding-bottom: 12px;
+        padding-left: 2px;
+        padding-right: 2px;
+        scrollbar-width: thin;
+    }
+
+    .combos-grid::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .combos-grid::-webkit-scrollbar-thumb {
+        background: #2f374a;
+        border-radius: 4px;
+    }
+
+    .combo-card {
+        flex: 0 0 250px !important;
+        scroll-snap-align: start;
+        border-radius: var(--radius-md);
+    }
+
+    .combo-image-box {
+        height: 135px;
+        padding: 8px;
+    }
+
+    .combo-content {
+        padding: 12px;
+    }
+
+    .combo-name {
+        font-size: 13.5px;
+        min-height: 36px;
+    }
+
+    .combo-items-list {
+        margin-bottom: 10px;
+    }
+
+    .combo-items-list li {
+        font-size: 11px;
+        gap: 4px;
+    }
+
+    .combo-price {
+        font-size: 22px;
+    }
+
+    .combo-regular-price {
+        font-size: 11px;
+    }
+
+    .btn-add-combo {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    /* BARRA DE CATEGORÍAS STICKY EN CELULARES */
+    .categories-bar-section {
+        position: sticky;
+        top: 0;
+        z-index: 850;
+        padding: 10px 0 6px 0;
+        background: rgba(11, 13, 19, 0.96);
+        backdrop-filter: blur(12px);
+    }
+
+    .categories-scroll-wrapper {
+        padding-bottom: 6px;
+    }
+
+    .pill-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        gap: 6px;
+    }
+
+    /* ----------------- CATÁLOGO PRINCIPAL: EXACTAMENTE 2 PRODUCTOS POR FILA ----------------- */
+    .products-catalog-section {
+        padding: 14px 0 85px 0; /* Margen para que la barra inferior no tape los últimos productos */
+    }
+
+    .catalog-status-bar {
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .results-info {
+        font-size: 12px;
+    }
+
+    .catalog-quick-sort {
+        font-size: 12px;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .sort-select {
+        flex: 1;
+        max-width: 200px;
+        padding: 5px 8px;
+        font-size: 12px;
+    }
+
+    /* GRILLA OBLIGATORIA DE POR LO MENOS 2 PRODUCTOS EN MÓVIL */
+    .products-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* Tarjeta de producto adaptada para vista doble en pantalla táctil */
+    .product-card {
+        border-radius: var(--radius-sm);
+    }
+
+    .product-image-container {
+        height: 125px;
+        padding: 8px;
+    }
+
+    .product-card:hover .product-image-container img {
+        transform: none; /* Fluidez máxima en celulares */
+    }
+
+    .product-info {
+        padding: 10px 8px 10px 8px;
+    }
+
+    .product-category-tag {
+        font-size: 9.5px;
+        margin-bottom: 2px;
+    }
+
+    .product-name {
+        font-size: 12.5px;
+        line-height: 1.3;
+        min-height: 32px;
+        margin-bottom: 2px;
+    }
+
+    .product-presentation {
+        font-size: 11px;
+        margin-bottom: 6px;
+    }
+
+    .product-pricing-box {
+        margin-bottom: 8px;
+    }
+
+    .product-price-minorista {
+        font-size: 20px;
+    }
+
+    .product-price-mayorista {
+        font-size: 10.5px;
+    }
+
+    /* Stepper + botón en tarjeta de 2 columnas */
+    .product-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .quantity-stepper {
+        background: #151a25;
+    }
+
+    .quantity-stepper button {
+        width: 22px;
+        height: 30px;
+        font-size: 12px;
+    }
+
+    .quantity-stepper input {
+        width: 22px;
+        height: 30px;
+        font-size: 12px;
+    }
+
+    .btn-add-cart {
+        height: 30px;
+        font-size: 12px;
+        padding: 0 6px;
+        gap: 4px;
+    }
+
+    .btn-add-cart i {
+        font-size: 11px;
+    }
+
+    /* Badges compactos en móvil */
+    .low-stock-badge,
+    .out-of-stock-badge,
+    .featured-badge {
+        font-size: 9px;
+        padding: 2px 6px;
+        top: 6px;
+        border-radius: 4px;
+    }
+
+    .low-stock-badge { right: 6px; }
+    .out-of-stock-badge { right: 6px; }
+    .featured-badge { left: 6px; }
+
+    /* ----------------- BARRA INFERIOR FLOTANTE MÓVIL (ESTILO LA BARRA CCU) ----------------- */
+    .mobile-bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 950;
+        background: linear-gradient(180deg, #181d29 0%, #0d1017 100%);
+        border-top: 1.5px solid rgba(245, 197, 24, 0.45);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
+        padding: 10px 14px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        animation: slideUpBar 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .mobile-bottom-bar.visible {
+        display: flex;
+    }
+
+    @keyframes slideUpBar {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    .mobile-bottom-bar-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mobile-bar-icon-wrap {
+        position: relative;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--brand-red);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-size: 16px;
+        box-shadow: 0 2px 10px rgba(220, 38, 38, 0.5);
+    }
+
+    .mobile-bar-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--brand-gold);
+        color: #111827;
+        font-size: 11px;
+        font-weight: 900;
+        width: 19px;
+        height: 19px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #0d1017;
+    }
+
+    .mobile-bar-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mobile-bar-count {
+        font-size: 11.5px;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
+    .mobile-bar-total {
+        font-family: var(--font-heading);
+        font-size: 20px;
+        color: var(--brand-gold-text);
+        line-height: 1.1;
+    }
+
+    .mobile-bottom-bar-btn {
+        background: var(--brand-red);
+        color: #ffffff;
+        padding: 9px 16px;
+        border-radius: var(--radius-full);
+        font-size: 13px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        letter-spacing: 0.03em;
+        box-shadow: 0 3px 12px rgba(220, 38, 38, 0.4);
+    }
+
+    /* Drawer de carrito full-width en móvil */
     .cart-drawer {
         max-width: 100%;
+        border-radius: 16px 16px 0 0;
+    }
+
+    /* Botón flotante móvil (backup) */
+    .floating-cart-btn {
+        display: flex;
+        bottom: 20px;
+        right: 18px;
+        width: 52px;
+        height: 52px;
+        font-size: 20px;
     }
 }
+
+@media (max-width: 480px) {
+    .container {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .products-grid {
+        gap: 7px !important;
+    }
+
+    .product-image-container {
+        height: 115px;
+    }
+
+    .product-name {
+        font-size: 12px;
+        min-height: 30px;
+    }
+
+    .product-price-minorista {
+        font-size: 18px;
+    }
+
+    .product-price-mayorista {
+        font-size: 10px;
+    }
+
+    .combo-card {
+        flex: 0 0 230px !important;
+    }
+}
+

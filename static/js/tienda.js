@@ -111,6 +111,12 @@
         const cartSubtotalEl = document.getElementById('cartSubtotal');
         const cartTotalEl = document.getElementById('cartTotal');
         const wholesaleNotice = document.getElementById('wholesaleNoticeBox');
+        
+        // Elementos barra móvil estilo La Barra CCU
+        const mobileBottomBar = document.getElementById('mobileBottomBar');
+        const mobileBarBadge = document.getElementById('mobileBarBadge');
+        const mobileBarCountNum = document.getElementById('mobileBarCountNum');
+        const mobileBarTotal = document.getElementById('mobileBarTotal');
 
         if (countBadge) countBadge.textContent = totalItems;
         if (headerTotal) headerTotal.textContent = formatCurrency(subtotal);
@@ -118,6 +124,20 @@
         if (floatingCount) floatingCount.textContent = totalItems;
         if (cartSubtotalEl) cartSubtotalEl.textContent = formatCurrency(subtotal);
         if (cartTotalEl) cartTotalEl.textContent = formatCurrency(subtotal);
+
+        // Barra inferior móvil
+        if (mobileBarBadge) mobileBarBadge.textContent = totalItems;
+        if (mobileBarCountNum) mobileBarCountNum.textContent = totalItems;
+        if (mobileBarTotal) mobileBarTotal.textContent = formatCurrency(subtotal);
+        if (mobileBottomBar) {
+            if (totalItems > 0) {
+                mobileBottomBar.classList.add('visible');
+                if (floatingCount && floatingCount.parentElement) floatingCount.parentElement.style.display = 'none';
+            } else {
+                mobileBottomBar.classList.remove('visible');
+                if (floatingCount && floatingCount.parentElement) floatingCount.parentElement.style.display = '';
+            }
+        }
 
         // Aviso mayorista si califica
         if (wholesaleNotice) {

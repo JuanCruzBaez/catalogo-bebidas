@@ -333,6 +333,9 @@
                     <h2 class="section-title">COMBOS DE BEBIDAS CON ACOMPAÑANTE</h2>
                     <p class="section-subtitle">Elegí tu bebida con sus gaseosas o energizantes acompañantes incluidos y ahorrá dinero en tu compra.</p>
                 </div>
+                <div class="mobile-shelf-hint">
+                    <i class="fa-solid fa-arrows-left-right"></i> Deslizá para ver combos
+                </div>
             </div>
 
             <!-- Grilla de Combos -->
@@ -565,6 +568,24 @@
         <i class="fa-solid fa-cart-shopping"></i>
         <span id="floatingCartCount" class="floating-badge">0</span>
     </button>
+
+    <!-- Barra flotante móvil de Carrito (estilo La Barra CCU / PedidosYa) -->
+    <div id="mobileBottomBar" class="mobile-bottom-bar" onclick="tiendaApp.openCart()" aria-label="Ver mi pedido">
+        <div class="mobile-bottom-bar-left">
+            <div class="mobile-bar-icon-wrap">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span id="mobileBarBadge" class="mobile-bar-badge">0</span>
+            </div>
+            <div class="mobile-bar-info">
+                <span class="mobile-bar-count"><span id="mobileBarCountNum">0</span> productos</span>
+                <span class="mobile-bar-total" id="mobileBarTotal">$ 0</span>
+            </div>
+        </div>
+        <div class="mobile-bottom-bar-btn">
+            <span>Ver Pedido</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </div>
+    </div>
 
     <!-- Toast Notification -->
     <div id="toastNotification" class="toast-notification"></div>

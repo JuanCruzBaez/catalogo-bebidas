@@ -54,3 +54,11 @@ body {
 .product-row:hover {
     background-color: rgba(241, 245, 249, 0.6);
 }
+
+/* Soporte de impresión estándar */
+@media print {
+    header, nav, aside, .no-print {
+        display: none !important;
+    }
+}
+

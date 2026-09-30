@@ -1524,12 +1524,20 @@
                                     <td class="px-4 py-3 text-center">
                                         <div class="flex items-center justify-center space-x-1.5">
                                             <button 
+                                                @click="printCustomerTicketById(sale.id)"
+                                                class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-400 hover:text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center space-x-1 border border-emerald-700/60 transition-colors shadow-sm"
+                                                title="Imprimir ticket para el cliente (sin costos ni ganancias)"
+                                            >
+                                                <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+                                                <span>Ticket</span>
+                                            </button>
+                                            <button 
                                                 @click="viewSaleDetail(sale.id)"
                                                 class="bg-neutral-900 hover:bg-neutral-800 text-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-neutral-700"
                                                 title="Ver detalle completo de productos vendidos"
                                             >
                                                 <i data-lucide="eye" class="w-3.5 h-3.5 text-brand-gold"></i>
-                                                <span>Ver Detalle</span>
+                                                <span>Detalle</span>
                                             </button>
                                             <button 
                                                 x-show="sale.status === 'completed'"
@@ -2347,9 +2355,21 @@
                                 <i data-lucide="save" class="w-4 h-4"></i>
                                 <span x-text="isSavingSaleDetail ? 'Guardando...' : 'Guardar Cambios'"></span>
                             </button>
-                            <button @click="window.print()" class="bg-neutral-800 hover:bg-neutral-700 text-slate-200 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5">
+                            <button 
+                                @click="printCustomerTicket(selectedSaleDetail)" 
+                                class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-black flex items-center space-x-1.5 shadow-lg shadow-emerald-950/40 active:scale-95 transition-all"
+                                title="Imprimir ticket para entregar al cliente (sin costos ni ganancias)"
+                            >
+                                <i data-lucide="receipt" class="w-4 h-4"></i>
+                                <span>Ticket Cliente</span>
+                            </button>
+                            <button 
+                                @click="printInternalSaleDetail(selectedSaleDetail)" 
+                                class="bg-neutral-800 hover:bg-neutral-700 text-slate-200 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 border border-neutral-700 active:scale-95 transition-all"
+                                title="Imprimir reporte interno detallado (con costos y ganancia neta)"
+                            >
                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-                                <span>Imprimir</span>
+                                <span>Imprimir (Uso Interno)</span>
                             </button>
                             <button @click="showSaleDetailModal = false" class="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-xs font-bold">
                                 Cerrar
@@ -2422,7 +2442,15 @@
                 </div>
             </template>
 
-            <div class="flex items-center space-x-3 pt-2">
+            <div class="flex items-center space-x-2 pt-2">
+                <button 
+                    @click="printCustomerTicket(lastCompletedSale)"
+                    class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950/40 flex items-center justify-center space-x-1.5 transition-all"
+                    title="Imprimir ticket para entregar al cliente"
+                >
+                    <i data-lucide="receipt" class="w-4 h-4"></i>
+                    <span>Imprimir Ticket</span>
+                </button>
                 <button 
                     @click="showSaleSuccessModal = false; if (lastCompletedSale) viewSaleDetail(lastCompletedSale.id)"
                     class="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-slate-200 rounded-xl text-xs font-bold transition-all"
@@ -2431,7 +2459,7 @@
                 </button>
                 <button 
                     @click="showSaleSuccessModal = false"
-                    class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950/50 transition-all"
+                    class="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition-all"
                 >
                     Nueva Venta
                 </button>

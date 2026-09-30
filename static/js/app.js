@@ -1147,6 +1147,7 @@ document.addEventListener('alpine:init', () => {
                 const data = await res.json();
                 if (data.success) {
                     this.salesHistory = data.sales;
+                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                 }
                 await this.fetchSalesSummary(this.salesDateFilter || null);
             } catch (err) {
@@ -1206,12 +1207,424 @@ document.addEventListener('alpine:init', () => {
                 if (data.success) {
                     this.selectedSaleDetail = data.sale;
                     this.showSaleDetailModal = true;
+                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                 } else {
                     this.showToast("No se pudo obtener el detalle de la venta", "error");
                 }
             } catch (err) {
                 this.showToast("Error de red al consultar venta", "error");
             }
+        },
+
+        // Helper para imprimir contenido HTML mediante un iframe oculto sin alterar la pantalla
+        printHtmlViaIframe(htmlContent) {
+            let iframe = document.getElementById('printTicketIframe');
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'printTicketIframe';
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+            }
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+
+            setTimeout(() => {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            }, 300);
+        },
+
+        // Carga la venta si no tiene ítems y lanza la impresión del ticket para el cliente
+        async printCustomerTicketById(saleId) {
+            if (!saleId) return;
+            let sale = null;
+            if (this.selectedSaleDetail && this.selectedSaleDetail.id === saleId && this.selectedSaleDetail.items && this.selectedSaleDetail.items.length > 0) {
+                sale = this.selectedSaleDetail;
+            } else if (this.lastCompletedSale && this.lastCompletedSale.id === saleId && this.lastCompletedSale.items && this.lastCompletedSale.items.length > 0) {
+                sale = this.lastCompletedSale;
+            } else {
+                try {
+                    const res = await fetch(`/api/sales/${saleId}`);
+                    const data = await res.json();
+                    if (data.success && data.sale) {
+                        sale = data.sale;
+                    }
+                } catch (e) {
+                    console.error("Error al obtener venta para ticket cliente:", e);
+                }
+            }
+
+            if (!sale) {
+                this.showToast("No se pudo cargar la venta para imprimir el ticket", "error");
+                return;
+            }
+
+            this.printCustomerTicket(sale);
+        },
+
+        // Genera e imprime el ticket para entregar al cliente (sin costos, sin ganancias ni márgenes)
+        printCustomerTicket(sale) {
+            if (!sale) return;
+            if (!sale.items || sale.items.length === 0) {
+                this.printCustomerTicketById(sale.id);
+                return;
+            }
+
+            const businessName = (this.settings.business_name || 'BEBIDAS 25 DE MAYO').toUpperCase();
+            const bannerPhrase = this.settings.banner_phrase || 'PARA TU NEGOCIO Y PARA VOS';
+            const address = this.settings.address || 'Av. 25 de Mayo 343';
+            const whatsapp = this.settings.whatsapp_number || '+54 9 11 7626 5350';
+            const ticketId = '#' + String(sale.id).padStart(4, '0');
+            const dateStr = sale.created_at_local || sale.created_at || new Date().toLocaleString('es-AR');
+            const seller = sale.seller_name || 'Caja';
+            const modality = (sale.price_type || 'minorista').toUpperCase();
+            const paymentMethod = sale.payment_method || 'Efectivo';
+
+            let itemsRows = '';
+            (sale.items || []).forEach(item => {
+                const qty = item.quantity || 1;
+                const unitPriceFormatted = this.formatCurrency(item.unit_price);
+                const subtotalFormatted = this.formatCurrency(item.subtotal || (item.unit_price * qty));
+                const pres = item.presentation ? ` (${item.presentation})` : '';
+
+                let qtyDetail = '';
+                if (qty > 1) {
+                    qtyDetail = `<div style="font-size: 11px; color: #222; margin-top: 1px;">${qty} un. x ${unitPriceFormatted}</div>`;
+                } else {
+                    qtyDetail = `<div style="font-size: 11px; color: #222; margin-top: 1px;">1 un. x ${unitPriceFormatted}</div>`;
+                }
+
+                itemsRows += `
+                    <tr style="border-bottom: 1px dashed #ccc;">
+                        <td style="padding: 5px 0 4px 0; text-align: left; vertical-align: top;">
+                            <div style="font-weight: bold; font-size: 11.5px; color: #000; text-transform: uppercase;">${item.product_name}${pres}</div>
+                            ${qtyDetail}
+                        </td>
+                        <td style="padding: 5px 0 4px 0; text-align: right; vertical-align: bottom; font-weight: bold; font-size: 12px; white-space: nowrap;">
+                            ${subtotalFormatted}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Desglose de totales
+            let financialRows = '';
+            const subtotalAmt = Number(sale.subtotal_amount || (sale.total_amount - (sale.surcharge_amount || 0)));
+            if (sale.surcharge_amount && Number(sale.surcharge_amount) > 0) {
+                financialRows += `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                        <span>Subtotal productos:</span>
+                        <span>${this.formatCurrency(subtotalAmt)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                        <span>Recargo ${paymentMethod} (+${sale.surcharge_pct || 0}%):</span>
+                        <span>+${this.formatCurrency(sale.surcharge_amount)}</span>
+                    </div>
+                `;
+            }
+
+            let cashDetails = '';
+            if (sale.payment_method === 'Efectivo' && Number(sale.amount_paid) > 0) {
+                cashDetails = `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 3px;">
+                        <span>Abonó con efectivo:</span>
+                        <span style="font-weight: bold;">${this.formatCurrency(sale.amount_paid)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: bold; margin-top: 2px;">
+                        <span>Su vuelto:</span>
+                        <span>${this.formatCurrency(sale.change_given || 0)}</span>
+                    </div>
+                `;
+            }
+
+            const ticketHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket ${ticketId} - ${businessName}</title>
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 3mm;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace, sans-serif;
+            font-size: 12px;
+            color: #000000;
+            background: #ffffff;
+            width: 72mm;
+            margin: 0 auto;
+            padding: 4px;
+            line-height: 1.3;
+        }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .left { text-align: left; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        .divider-solid { border-top: 2px solid #000; margin: 6px 0; }
+    </style>
+</head>
+<body>
+    <div class="center" style="margin-bottom: 6px;">
+        <h1 style="font-size: 15.5px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">${businessName}</h1>
+        <p style="font-size: 10px; margin-top: 1px; text-transform: uppercase;">${bannerPhrase}</p>
+        <p style="font-size: 9.5px; margin-top: 1px;">${address} · WhatsApp: ${whatsapp}</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+        <span>TICKET: <strong>${ticketId}</strong></span>
+        <span>${dateStr}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+        <span>ATENDIÓ: <strong>${seller}</strong></span>
+        <span>PAGO: <strong>${paymentMethod}</strong></span>
+    </div>
+
+    <div style="border: 2px solid #000; padding: 4px; text-align: center; font-weight: 900; font-size: 12px; margin: 5px 0; letter-spacing: 0.5px;">
+        MODALIDAD: VENTA ${modality}
+    </div>
+
+    <div class="divider"></div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 4px;">
+        <thead>
+            <tr style="border-bottom: 1px dashed #000;">
+                <th style="text-align: left; font-size: 10px; padding-bottom: 3px;">DESCRIPCIÓN</th>
+                <th style="text-align: right; font-size: 10px; padding-bottom: 3px;">TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${itemsRows}
+        </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <div style="margin-top: 4px;">
+        ${financialRows}
+        <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 900; padding: 4px 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; margin: 4px 0;">
+            <span>TOTAL COBRADO:</span>
+            <span>${this.formatCurrency(sale.total_amount)}</span>
+        </div>
+        ${cashDetails}
+    </div>
+
+    <div class="divider-solid"></div>
+
+    <div class="center" style="margin-top: 8px; font-size: 10px;">
+        <div style="font-size: 11.5px; font-weight: bold; margin-bottom: 2px;">¡MUCHAS GRACIAS POR SU COMPRA!</div>
+        <div style="font-size: 9px; color: #444;">Comprobante no válido como factura fiscal</div>
+        <div style="font-weight: bold; margin-top: 2px;">BEBIDAS 25 DE MAYO</div>
+    </div>
+</body>
+</html>
+            `;
+
+            this.printHtmlViaIframe(ticketHtml);
+        },
+
+        // Carga la venta si no tiene ítems y lanza la impresión interna completa (para administración)
+        async printInternalSaleDetailById(saleId) {
+            if (!saleId) return;
+            let sale = null;
+            if (this.selectedSaleDetail && this.selectedSaleDetail.id === saleId && this.selectedSaleDetail.items && this.selectedSaleDetail.items.length > 0) {
+                sale = this.selectedSaleDetail;
+            } else {
+                try {
+                    const res = await fetch(`/api/sales/${saleId}`);
+                    const data = await res.json();
+                    if (data.success && data.sale) {
+                        sale = data.sale;
+                    }
+                } catch (e) {
+                    console.error("Error al obtener venta para detalle interno:", e);
+                }
+            }
+
+            if (!sale) {
+                this.showToast("No se pudo cargar el detalle para imprimir", "error");
+                return;
+            }
+
+            this.printInternalSaleDetail(sale);
+        },
+
+        // Imprime el detalle completo de uso interno (con costos de mercadería, utilidades y ganancia neta)
+        printInternalSaleDetail(sale) {
+            if (!sale) return;
+            if (!sale.items || sale.items.length === 0) {
+                this.printInternalSaleDetailById(sale.id);
+                return;
+            }
+
+            const businessName = (this.settings.business_name || 'BEBIDAS 25 DE MAYO').toUpperCase();
+            const ticketId = '#' + String(sale.id).padStart(4, '0');
+            const dateStr = sale.created_at_local || sale.created_at || new Date().toLocaleString('es-AR');
+            const seller = sale.seller_name || 'Caja';
+            const modality = (sale.price_type || 'minorista').toUpperCase();
+            const paymentMethod = sale.payment_method || 'Efectivo';
+
+            let itemsTableRows = '';
+            (sale.items || []).forEach(item => {
+                const cost = Number(item.cost_price || item.catalog_cost_price || 0);
+                const unitProfit = item.unit_price - cost;
+                const totalProfit = item.profit !== undefined ? item.profit : (unitProfit * item.quantity);
+                const pres = item.presentation ? ` (${item.presentation})` : '';
+
+                itemsTableRows += `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 5px 6px; font-weight: bold; font-size: 11px;">${item.product_name}${pres}</td>
+                        <td style="padding: 5px 6px; text-align: center; text-transform: uppercase; font-size: 10px;">${item.price_type || modality}</td>
+                        <td style="padding: 5px 6px; text-align: right; font-family: monospace; font-size: 11px;">${this.formatCurrency(cost)}</td>
+                        <td style="padding: 5px 6px; text-align: right; font-family: monospace; font-weight: bold; font-size: 11px;">${this.formatCurrency(item.unit_price)}</td>
+                        <td style="padding: 5px 6px; text-align: center; font-weight: bold; font-size: 11px;">${item.quantity}</td>
+                        <td style="padding: 5px 6px; text-align: right; font-family: monospace; color: #059669; font-weight: bold; font-size: 11px;">${this.formatCurrency(unitProfit)}</td>
+                        <td style="padding: 5px 6px; text-align: right; font-family: monospace; font-weight: bold; font-size: 11px;">${this.formatCurrency(item.subtotal)}</td>
+                        <td style="padding: 5px 6px; text-align: right; font-family: monospace; color: #059669; font-weight: 900; font-size: 11px;">${this.formatCurrency(totalProfit)}</td>
+                    </tr>
+                `;
+            });
+
+            const marginPct = sale.total_amount > 0 
+                ? (Math.round(((sale.total_profit || 0) / sale.total_amount) * 1000) / 10) + '%' 
+                : '0%';
+            const netProfit = sale.total_profit || (sale.total_amount - (sale.total_cost || 0));
+
+            const internalHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte Interno ${ticketId} - ${businessName}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11.5px;
+            color: #1e293b;
+            background: #ffffff;
+            padding: 10px;
+            line-height: 1.35;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 10px;
+            padding: 6px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
+        <div>
+            <h1 style="font-size: 17px; font-weight: 900; color: #0f172a;">${businessName}</h1>
+            <p style="font-size: 11.5px; font-weight: bold; color: #b91c1c; text-transform: uppercase; margin-top: 2px;">DETALLE DE VENTA COMPLETO (USO INTERNO / ADMINISTRATIVO)</p>
+        </div>
+        <div style="text-align: right;">
+            <div style="font-size: 18px; font-weight: 900; font-family: monospace; color: #b91c1c;">${ticketId}</div>
+            <div style="font-size: 11px; color: #64748b;">${dateStr}</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; font-size: 11px;">
+        <div><span style="color: #64748b; display: block; font-size: 9.5px; font-weight: bold;">VENDEDOR:</span><strong>${seller}</strong></div>
+        <div><span style="color: #64748b; display: block; font-size: 9.5px; font-weight: bold;">MEDIO DE PAGO:</span><strong>${paymentMethod}</strong></div>
+        <div><span style="color: #64748b; display: block; font-size: 9.5px; font-weight: bold;">MODALIDAD:</span><strong style="text-transform: uppercase;">${modality}</strong></div>
+        <div><span style="color: #64748b; display: block; font-size: 9.5px; font-weight: bold;">ESTADO:</span><strong style="text-transform: uppercase;">${sale.status || 'Completada'}</strong></div>
+    </div>
+
+    <table style="margin-bottom: 14px;">
+        <thead>
+            <tr>
+                <th style="text-align: left;">Producto</th>
+                <th style="text-align: center;">Modalidad</th>
+                <th style="text-align: right;">Costo Unit.</th>
+                <th style="text-align: right;">Precio Venta</th>
+                <th style="text-align: center;">Cant.</th>
+                <th style="text-align: right;">Utilidad Unit.</th>
+                <th style="text-align: right;">Subtotal</th>
+                <th style="text-align: right;">Ganancia Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${itemsTableRows}
+        </tbody>
+    </table>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11.5px; background: #f8fafc;">
+            <div style="font-weight: bold; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; color: #334155;">DESGLOSE DE COBRO</div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Subtotal productos:</span>
+                <span style="font-family: monospace; font-weight: bold;">${this.formatCurrency(sale.subtotal_amount || (sale.total_amount - (sale.surcharge_amount || 0)))}</span>
+            </div>
+            ${sale.surcharge_amount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px; color: #b45309;">
+                <span>Recargo ${paymentMethod} (+${sale.surcharge_pct}%):</span>
+                <span style="font-family: monospace; font-weight: bold;">+${this.formatCurrency(sale.surcharge_amount)}</span>
+            </div>` : ''}
+            <div style="display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 900; border-top: 1px solid #cbd5e1; padding-top: 5px; margin-top: 4px;">
+                <span>TOTAL COBRADO:</span>
+                <span style="font-family: monospace;">${this.formatCurrency(sale.total_amount)}</span>
+            </div>
+            ${sale.payment_method === 'Efectivo' && sale.amount_paid > 0 ? `
+            <div style="margin-top: 6px; padding-top: 5px; border-top: 1px dashed #cbd5e1; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between;"><span>Abonó con efectivo:</span><span style="font-family: monospace; font-weight: bold;">${this.formatCurrency(sale.amount_paid)}</span></div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #059669; margin-top: 2px;"><span>Vuelto entregado:</span><span style="font-family: monospace;">${this.formatCurrency(sale.change_given || 0)}</span></div>
+            </div>` : ''}
+        </div>
+
+        <div style="border: 1px solid #86efac; border-radius: 6px; padding: 10px; font-size: 11.5px; background: #f0fdf4;">
+            <div style="font-weight: bold; border-bottom: 1px solid #86efac; padding-bottom: 4px; margin-bottom: 6px; color: #166534;">RENTABILIDAD Y UTILIDAD (ADMINISTRACIÓN)</div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Costo Total Mercadería:</span>
+                <span style="font-family: monospace; font-weight: bold;">${this.formatCurrency(sale.total_cost || 0)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Margen de Ganancia:</span>
+                <span style="font-family: monospace; font-weight: bold; color: #15803d;">${marginPct}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 14.5px; font-weight: 900; border-top: 1.5px solid #86efac; padding-top: 5px; margin-top: 5px; color: #166534;">
+                <span>GANANCIA NETA:</span>
+                <span style="font-family: monospace;">${this.formatCurrency(netProfit)}</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+            `;
+
+            this.printHtmlViaIframe(internalHtml);
         },
 
         getDetailPaymentSurchargePct(method) {

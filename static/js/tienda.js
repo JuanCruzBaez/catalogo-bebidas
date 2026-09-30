@@ -361,12 +361,21 @@
     function filterByCategory(category) {
         state.activeCategory = category;
 
-        // Si elige combos, hacer scroll suave a la sección de combos
+        // Si elige combos, limpiar búsqueda si había alguna para restaurar la sección
         if (category === 'combos' || category === 'Combos') {
+            state.searchQuery = '';
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+
+            renderFilteredProducts();
+
             const combosEl = document.getElementById('combosSection');
             if (combosEl) {
                 combosEl.scrollIntoView({ behavior: 'smooth' });
             }
+            return;
         } else {
             // Scroll a productos
             const catBar = document.getElementById('catalogSection');
@@ -384,8 +393,26 @@
         const emptyState = document.getElementById('noResultsState');
         const resultsCountEl = document.getElementById('resultsCountText');
         const filterBadge = document.getElementById('activeFilterBadge');
+        const combosSection = document.getElementById('combosSection');
+        const heroCarouselSection = document.getElementById('heroCarouselSection');
+        const trustBannerSection = document.querySelector('.trust-banner-section');
 
         if (!grid) return;
+
+        const hasSearch = !!(state.searchQuery && state.searchQuery.trim().length > 0);
+
+        // Cuando el usuario busca un producto, la sección de combos deja de aparecer
+        if (combosSection) {
+            combosSection.style.display = hasSearch ? 'none' : '';
+        }
+
+        // Ocultar también carrusel y garantías para que los resultados aparezcan directamente debajo del buscador
+        if (heroCarouselSection) {
+            heroCarouselSection.style.display = hasSearch ? 'none' : '';
+        }
+        if (trustBannerSection) {
+            trustBannerSection.style.display = hasSearch ? 'none' : '';
+        }
 
         let filtered = [...state.products];
 
@@ -393,22 +420,26 @@
         if (state.activeCategory !== 'all' && state.activeCategory !== 'combos') {
             filtered = filtered.filter(p => String(p.category_id) === String(state.activeCategory));
             const catObj = state.categories.find(c => String(c.id) === String(state.activeCategory));
-            if (catObj && filterBadge) {
+            if (catObj && filterBadge && !hasSearch) {
                 filterBadge.textContent = catObj.name;
                 filterBadge.style.display = 'inline-block';
             }
-        } else {
+        } else if (!hasSearch) {
             if (filterBadge) filterBadge.style.display = 'none';
         }
 
         // Filtro de búsqueda
-        if (state.searchQuery) {
+        if (hasSearch) {
             const q = state.searchQuery.toLowerCase().trim();
             filtered = filtered.filter(p => 
                 p.name.toLowerCase().includes(q) ||
                 (p.presentation && p.presentation.toLowerCase().includes(q)) ||
                 (p.category_name && p.category_name.toLowerCase().includes(q))
             );
+            if (filterBadge) {
+                filterBadge.textContent = `Búsqueda: "${state.searchQuery.trim()}"`;
+                filterBadge.style.display = 'inline-block';
+            }
         }
 
         // Ordenamiento
@@ -423,14 +454,29 @@
             filtered.sort((a, b) => (b.is_featured || 0) - (a.is_featured || 0));
         }
 
-        // Actualizar contador
+        // Actualizar contador de resultados
         if (resultsCountEl) {
-            resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} disponible${filtered.length === 1 ? '' : 's'}`;
+            if (hasSearch) {
+                resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'} para "${state.searchQuery.trim()}"`;
+            } else {
+                resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} disponible${filtered.length === 1 ? '' : 's'}`;
+            }
         }
 
         if (filtered.length === 0) {
             grid.innerHTML = '';
-            if (emptyState) emptyState.style.display = 'block';
+            if (emptyState) {
+                emptyState.style.display = 'block';
+                const emptyTitle = emptyState.querySelector('h3');
+                const emptyDesc = emptyState.querySelector('p');
+                if (hasSearch && emptyTitle && emptyDesc) {
+                    emptyTitle.textContent = `No se encontraron productos para "${state.searchQuery.trim()}"`;
+                    emptyDesc.textContent = 'Verificá la ortografía o intentá con otra palabra clave como cerveza, fernet o vodka.';
+                } else if (emptyTitle && emptyDesc) {
+                    emptyTitle.textContent = 'No se encontraron productos';
+                    emptyDesc.textContent = 'Intentá buscar con otra palabra clave o seleccioná otra categoría.';
+                }
+            }
             return;
         }
 
@@ -620,11 +666,21 @@
                 }
                 renderFilteredProducts();
             });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchInput.blur();
+                }
+            });
         }
 
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener('click', () => {
-                if (searchInput) searchInput.value = '';
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.focus();
+                }
                 state.searchQuery = '';
                 clearSearchBtn.style.display = 'none';
                 renderFilteredProducts();

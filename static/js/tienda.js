@@ -336,6 +336,7 @@
         `;
 
         state.categories.forEach(cat => {
+            if (cat.name && cat.name.toUpperCase() === 'COMBOS') return;
             const isActive = state.activeCategory === String(cat.id);
             html += `
                 <button class="pill-btn ${isActive ? 'active' : ''}" data-category="${cat.id}">
@@ -414,7 +415,8 @@
             trustBannerSection.style.display = hasSearch ? 'none' : '';
         }
 
-        let filtered = [...state.products];
+        // Reservar este catálogo inferior exclusivamente para productos individuales (los combos están en su sección dedicada)
+        let filtered = state.products.filter(p => !p.category_name || p.category_name.toUpperCase() !== 'COMBOS');
 
         // Filtro de categoría
         if (state.activeCategory !== 'all' && state.activeCategory !== 'combos') {

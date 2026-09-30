@@ -628,7 +628,7 @@ def get_public_products(category_id=None, query=None):
             p.stock
         FROM products p 
         JOIN categories c ON p.category_id = c.id 
-        WHERE p.is_active = 1
+        WHERE p.is_active = 1 AND UPPER(c.name) != 'COMBOS'
     """
     params = []
     if category_id:
@@ -669,7 +669,7 @@ def get_public_products(category_id=None, query=None):
 
 def get_public_categories():
     """
-    Retorna categorías que tienen productos activos para mostrar en la tienda de clientes.
+    Retorna categorías que tienen productos activos para mostrar en la tienda de clientes (excluyendo COMBOS que tienen sección propia).
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -677,6 +677,7 @@ def get_public_categories():
         SELECT c.id, c.name, c.order_index, c.icon, COUNT(p.id) as product_count
         FROM categories c
         JOIN products p ON c.id = p.category_id AND p.is_active = 1
+        WHERE UPPER(c.name) != 'COMBOS'
         GROUP BY c.id
         HAVING COUNT(p.id) > 0
         ORDER BY c.order_index ASC, c.name ASC

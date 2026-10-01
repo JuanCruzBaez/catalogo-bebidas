@@ -321,6 +321,37 @@
         grid.innerHTML = html;
     }
 
+    function updateCarouselPricing() {
+        if (!state.combos || !state.combos.length) return;
+        const slides = document.querySelectorAll('.carousel-slide');
+        slides.forEach(slide => {
+            const addBtn = slide.querySelector('button[onclick*="addComboById"]');
+            if (!addBtn) return;
+            const match = addBtn.getAttribute('onclick').match(/addComboById\((\d+)\)/);
+            if (!match) return;
+            const comboId = parseInt(match[1], 10);
+            const combo = state.combos.find(c => c.id === comboId);
+            if (!combo) return;
+
+            const priceEl = slide.querySelector('.slide-price');
+            const regularEl = slide.querySelector('.slide-regular-price');
+            const savingsEl = slide.querySelector('.slide-savings');
+
+            if (priceEl && combo.price) {
+                priceEl.textContent = formatCurrency(combo.price);
+            }
+            if (regularEl && combo.regular_price > combo.price) {
+                regularEl.textContent = `Antes: ${formatCurrency(combo.regular_price)}`;
+                regularEl.style.display = '';
+            }
+            if (savingsEl && combo.regular_price > combo.price) {
+                const diff = combo.regular_price - combo.price;
+                savingsEl.textContent = `¡Ahorrás ${formatCurrency(diff)}!`;
+                savingsEl.style.display = '';
+            }
+        });
+    }
+
     // ----------------- RENDERIZADO DE CATEGORÍAS -----------------
     function renderCategories() {
         const container = document.getElementById('categoryPills');
@@ -734,6 +765,7 @@
             if (combosRes.ok) {
                 state.combos = await combosRes.json();
                 renderCombos();
+                updateCarouselPricing();
             }
 
             // 3. Cargar Categorías

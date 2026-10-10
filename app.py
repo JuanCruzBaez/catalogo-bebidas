@@ -419,6 +419,23 @@ def api_update_product_stock(prod_id):
     trigger_background_sync()
     return jsonify({"success": True, "stock": new_stock})
 
+@app.route('/api/stock/audit', methods=['GET'])
+def api_stock_audit():
+    """Retorna la comparativa completa de todos los productos entre stock actual y ventas reales"""
+    audit_data = database.get_stock_audit_data()
+    return jsonify({"success": True, "audit": audit_data})
+
+@app.route('/api/stock/batch-update', methods=['POST'])
+def api_stock_batch_update():
+    """Actualiza en lote el stock de múltiples productos regularizados"""
+    data = request.get_json() or {}
+    stocks = data.get('stocks', {})
+    if not isinstance(stocks, dict):
+        return jsonify({"error": "Formato de stocks inválido"}), 400
+    database.batch_update_stock(stocks)
+    trigger_background_sync()
+    return jsonify({"success": True, "message": f"Se regularizó el stock de {len(stocks)} productos con éxito", "updated_count": len(stocks)})
+
 # ----------------- AJUSTE MASIVO DE PRECIOS -----------------
 
 @app.route('/api/products/bulk-price-adjustment', methods=['POST'])
@@ -674,10 +691,12 @@ def api_get_sales():
     offset = request.args.get('offset', default=0, type=int)
     seller_name = request.args.get('seller_name', default=None)
     date_filter = request.args.get('date', default=None)
+    status_filter = request.args.get('status', default=None)
     q = request.args.get('q', default=None)
     
-    sales = database.get_sales(limit=limit, offset=offset, seller_name=seller_name, date_filter=date_filter, query=q)
-    return jsonify({"success": True, "sales": sales})
+    sales = database.get_sales(limit=limit, offset=offset, seller_name=seller_name, date_filter=date_filter, query=q, status_filter=status_filter)
+    cancelled_count = database.get_cancelled_sales_count(date_filter=date_filter)
+    return jsonify({"success": True, "sales": sales, "cancelled_count": cancelled_count})
 
 @app.route('/api/sales', methods=['POST'])
 def api_create_sale():
@@ -761,7 +780,9 @@ def api_update_sale(sale_id):
 
 @app.route('/api/sales/<int:sale_id>/cancel', methods=['POST'])
 def api_cancel_sale(sale_id):
-    success = database.cancel_sale(sale_id)
+    data = request.get_json() or {}
+    reason = (data.get('reason') or 'Anulada por el usuario desde el panel').strip()
+    success = database.cancel_sale(sale_id, reason=reason)
     if not success:
         return jsonify({"error": "No se pudo anular la venta o ya estaba anulada"}), 400
     
@@ -771,11 +792,12 @@ def api_cancel_sale(sale_id):
         
     # Devolver productos para refrescar stock en frontend
     sale = database.get_sale_detail(sale_id)
-    updated_products = [database.get_product(it['product_id']) for it in sale.get('items', [])]
+    updated_products = [database.get_product(it['product_id']) for it in (sale.get('items', []) if sale else [])]
     return jsonify({
         "success": True, 
-        "message": "Venta anulada correctamente y stock reintegrado",
-        "updated_products": updated_products
+        "message": f"Venta #{sale_id} anulada permanentemente y stock reintegrado",
+        "updated_products": updated_products,
+        "sale": sale
     })
 
 @app.route('/api/sales/summary', methods=['GET'])
@@ -868,10 +890,11 @@ def api_sync_cancel_sale():
     """Recibe la orden de anular una venta de forma segura entre local y nube"""
     data = request.get_json() or {}
     sale_id = data.get('sale_id')
+    reason = (data.get('reason') or 'Anulada vía sincronización').strip()
     if not sale_id:
         return jsonify({"error": "sale_id es requerido"}), 400
     try:
-        success = database.cancel_sale(int(sale_id))
+        success = database.cancel_sale(int(sale_id), reason=reason)
         return jsonify({
             "success": True, 
             "message": f"Venta #{sale_id} procesada para anulación en el servidor", 

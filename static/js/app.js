@@ -34,6 +34,8 @@ document.addEventListener('alpine:init', () => {
         salesPeriod: 'today', // 'today', 'week', 'month', 'year', 'historical'
         salesDateFilter: '',
         salesSellerFilter: '',
+        salesStatusFilter: 'all', // 'all', 'completed', 'cancelled'
+        totalCancelledSalesCount: 0,
         sellerName: localStorage.getItem('pos_seller_name') || '',
         salesPriceType: 'minorista', // 'minorista' o 'mayorista'
         salesSearchQuery: '',
@@ -63,6 +65,13 @@ document.addEventListener('alpine:init', () => {
         isSavingSaleDetail: false,
         showSaleDetailModal: false,
         showSaleSuccessModal: false,
+
+        // Estado del Modal de Auditoría y Regularización de Stock
+        showStockAuditModal: false,
+        stockAuditList: [],
+        stockAuditFilter: 'all', // 'all', 'critical', 'cancelled_sales'
+        stockAuditSearch: '',
+        isSavingStockAudit: false,
         lastCompletedSale: null,
         isSubmittingSale: false,
         
@@ -1139,6 +1148,9 @@ document.addEventListener('alpine:init', () => {
                 if (this.salesDateFilter) {
                     url += `date=${encodeURIComponent(this.salesDateFilter)}&`;
                 }
+                if (this.salesStatusFilter && this.salesStatusFilter !== 'all') {
+                    url += `status=${encodeURIComponent(this.salesStatusFilter)}&`;
+                }
                 const queryTerm = (this.salesSearchQuery || this.salesSellerFilter || '').trim();
                 if (queryTerm) {
                     url += `q=${encodeURIComponent(queryTerm)}&`;
@@ -1147,6 +1159,7 @@ document.addEventListener('alpine:init', () => {
                 const data = await res.json();
                 if (data.success) {
                     this.salesHistory = data.sales;
+                    this.totalCancelledSalesCount = data.cancelled_count || 0;
                     this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                 }
                 await this.fetchSalesSummary(this.salesDateFilter || null);
@@ -1710,16 +1723,22 @@ document.addEventListener('alpine:init', () => {
         },
 
         async cancelSale(saleId) {
-            if (!confirm("¿Estás seguro de anular esta venta? El stock de los productos será reintegrado automáticamente a la base de datos.")) {
+            const reason = prompt("¿Estás seguro de anular esta venta de forma permanente?\n\nEl stock de los productos será reintegrado automáticamente a la base de datos y la venta quedará guardada en el Historial de Anuladas.\n\nMotivo de la anulación (opcional):", "Error en cobro / Cancelación de cliente");
+            if (reason === null) {
                 return;
             }
             try {
-                const res = await fetch(`/api/sales/${saleId}/cancel`, { method: 'POST' });
+                const res = await fetch(`/api/sales/${saleId}/cancel`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason.trim() || 'Anulada por el usuario' })
+                });
                 const data = await res.json();
                 if (data.success) {
                     this.showToast(data.message, "success");
                     if (data.updated_products && Array.isArray(data.updated_products)) {
                         data.updated_products.forEach(up => {
+                            if (!up) return;
                             const local = this.products.find(p => p.id === up.id);
                             if (local) local.stock = up.stock;
                             const localAll = this.allProducts.find(p => p.id === up.id);
@@ -1728,6 +1747,8 @@ document.addEventListener('alpine:init', () => {
                     }
                     if (this.selectedSaleDetail && this.selectedSaleDetail.id === saleId) {
                         this.selectedSaleDetail.status = 'cancelled';
+                        this.selectedSaleDetail.cancelled_at = data.sale ? data.sale.cancelled_at : null;
+                        this.selectedSaleDetail.cancellation_reason = data.sale ? data.sale.cancellation_reason : reason;
                     }
                     await this.fetchSales();
                     await this.fetchSalesSummary();
@@ -1737,6 +1758,124 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (err) {
                 this.showToast("Error de red al anular venta", "error");
+            }
+        },
+
+        // =========================================================
+        // AUDITORÍA Y REGULARIZACIÓN DE STOCK VS VENTAS
+        // =========================================================
+        async openStockAuditModal() {
+            this.showStockAuditModal = true;
+            this.stockAuditSearch = '';
+            this.stockAuditFilter = 'all';
+            await this.fetchStockAudit();
+        },
+
+        async fetchStockAudit() {
+            try {
+                const res = await fetch('/api/stock/audit');
+                const data = await res.json();
+                if (data.success) {
+                    this.stockAuditList = data.audit.map(item => ({
+                        ...item,
+                        regularized_stock: item.stock,
+                        is_dirty: false
+                    }));
+                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                }
+            } catch (err) {
+                this.showToast("Error al cargar datos de auditoría de stock", "error");
+            }
+        },
+
+        filteredStockAuditList() {
+            let list = this.stockAuditList || [];
+            if (this.stockAuditFilter === 'critical') {
+                list = list.filter(it => it.is_out_of_stock || it.is_low_stock);
+            } else if (this.stockAuditFilter === 'cancelled_sales') {
+                list = list.filter(it => it.total_sold_cancelled > 0);
+            }
+            if (this.stockAuditSearch && this.stockAuditSearch.trim()) {
+                const q = this.stockAuditSearch.toLowerCase().trim();
+                list = list.filter(it => 
+                    it.name.toLowerCase().includes(q) || 
+                    (it.presentation && it.presentation.toLowerCase().includes(q)) ||
+                    (it.category_name && it.category_name.toLowerCase().includes(q))
+                );
+            }
+            return list;
+        },
+
+        async saveStockAuditItem(item) {
+            const newStock = parseInt(item.regularized_stock, 10);
+            if (isNaN(newStock) || newStock < 0) {
+                this.showToast("Ingresá un valor de stock válido (número mayor o igual a 0)", "error");
+                return;
+            }
+            try {
+                const res = await fetch(`/api/products/${item.id}/stock`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stock: newStock })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    item.stock = newStock;
+                    item.is_dirty = false;
+                    item.is_out_of_stock = newStock <= 0;
+                    item.is_low_stock = newStock >= 1 && newStock <= 3;
+                    
+                    const p = this.products.find(x => x.id === item.id);
+                    if (p) p.stock = newStock;
+                    const pAll = this.allProducts.find(x => x.id === item.id);
+                    if (pAll) pAll.stock = newStock;
+                    
+                    this.showToast(`Stock de "${item.name}" regularizado a ${newStock} un.`, "success");
+                }
+            } catch (err) {
+                this.showToast("Error al actualizar stock", "error");
+            }
+        },
+
+        async saveAllStockAudit() {
+            const dirtyItems = this.stockAuditList.filter(item => parseInt(item.regularized_stock, 10) !== item.stock);
+            if (dirtyItems.length === 0) {
+                this.showToast("No hay cambios pendientes de regularización", "info");
+                return;
+            }
+            this.isSavingStockAudit = true;
+            try {
+                const stocksMap = {};
+                dirtyItems.forEach(it => {
+                    stocksMap[it.id] = parseInt(it.regularized_stock, 10) || 0;
+                });
+                const res = await fetch('/api/stock/batch-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stocks: stocksMap })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    dirtyItems.forEach(it => {
+                        const newStock = parseInt(it.regularized_stock, 10) || 0;
+                        it.stock = newStock;
+                        it.is_dirty = false;
+                        it.is_out_of_stock = newStock <= 0;
+                        it.is_low_stock = newStock >= 1 && newStock <= 3;
+                        const p = this.products.find(x => x.id === it.id);
+                        if (p) p.stock = newStock;
+                        const pAll = this.allProducts.find(x => x.id === it.id);
+                        if (pAll) pAll.stock = newStock;
+                    });
+                    this.showToast(`Se regularizó el inventario de ${dirtyItems.length} productos con éxito`, "success");
+                    await this.fetchProducts();
+                } else {
+                    this.showToast(data.error || "Error al regularizar stocks", "error");
+                }
+            } catch (err) {
+                this.showToast("Error de conexión al regularizar inventario", "error");
+            } finally {
+                this.isSavingStockAudit = false;
             }
         },
 

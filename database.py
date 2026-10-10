@@ -119,6 +119,18 @@ def init_db():
         cursor.execute("ALTER TABLE sales ADD COLUMN amount_paid REAL DEFAULT 0.0")
     if "change_given" not in sales_cols:
         cursor.execute("ALTER TABLE sales ADD COLUMN change_given REAL DEFAULT 0.0")
+    if "cancelled_at" not in sales_cols:
+        cursor.execute("ALTER TABLE sales ADD COLUMN cancelled_at TEXT DEFAULT NULL")
+    if "cancellation_reason" not in sales_cols:
+        cursor.execute("ALTER TABLE sales ADD COLUMN cancellation_reason TEXT DEFAULT ''")
+
+    # Backfill de cancelled_at para ventas anuladas existentes sin fecha registrada
+    cursor.execute("""
+    UPDATE sales 
+    SET cancelled_at = created_at,
+        cancellation_reason = 'Venta anulada previamente'
+    WHERE status = 'cancelled' AND (cancelled_at IS NULL OR cancelled_at = '')
+    """)
 
     # Actualizar nombres antiguos de medios de pago si existen
     cursor.execute("""
@@ -1259,9 +1271,10 @@ def update_sale(sale_id, update_data):
     finally:
         conn.close()
 
-def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=None):
+def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=None, status_filter=None):
     """
     Obtiene el listado de ventas ordenadas por fecha reciente, con soporte de filtrado:
+    - por estado: 'completed', 'cancelled' o 'all' (status_filter)
     - por fecha local (date_filter)
     - por búsqueda inteligente (query o seller_name): busca en producto vendido (tokens), vendedor, notas, o ticket ID
     - incluye products_summary con la lista de productos de cada ticket
@@ -1273,6 +1286,10 @@ def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=Non
     SELECT 
         s.*, 
         datetime(s.created_at, '-3 hours') as created_at_local,
+        CASE WHEN s.cancelled_at IS NOT NULL AND s.cancelled_at != '' 
+             THEN datetime(s.cancelled_at, '-3 hours') 
+             ELSE NULL 
+        END as cancelled_at_local,
         (
             SELECT GROUP_CONCAT(si.product_name || ' (' || si.quantity || ' un.)', ', ')
             FROM sale_items si
@@ -1282,6 +1299,11 @@ def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=Non
     WHERE 1=1
     """
     params = []
+
+    # Filtro por estado ('completed', 'cancelled', 'all' o None)
+    if status_filter and status_filter in ('completed', 'cancelled'):
+        sql += " AND s.status = ?"
+        params.append(status_filter)
 
     search_term = query if query is not None else seller_name
     if search_term and str(search_term).strip():
@@ -1342,13 +1364,30 @@ def get_sales(limit=100, offset=0, seller_name=None, date_filter=None, query=Non
     conn.close()
     return sales
 
+def get_cancelled_sales_count(date_filter=None):
+    """Devuelve la cantidad total de ventas anuladas para badges e indicadores"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if date_filter:
+        cursor.execute("SELECT count(*) FROM sales WHERE status = 'cancelled' AND date(created_at, '-3 hours') = date(?)", (date_filter,))
+    else:
+        cursor.execute("SELECT count(*) FROM sales WHERE status = 'cancelled'")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
 def get_sale_detail(sale_id):
     """Obtiene la venta y todos los artículos vendidos con hora local, recargos y precios de catálogo para recálculo dinámico"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("""
-    SELECT *, datetime(created_at, '-3 hours') as created_at_local 
+    SELECT *, 
+        datetime(created_at, '-3 hours') as created_at_local,
+        CASE WHEN cancelled_at IS NOT NULL AND cancelled_at != '' 
+             THEN datetime(cancelled_at, '-3 hours') 
+             ELSE NULL 
+        END as cancelled_at_local
     FROM sales 
     WHERE id = ?
     """, (sale_id,))
@@ -1373,9 +1412,10 @@ def get_sale_detail(sale_id):
     conn.close()
     return sale
 
-def cancel_sale(sale_id):
+def cancel_sale(sale_id, reason="Anulada por el usuario"):
     """
-    Anula una venta y restituye automáticamente el stock a los productos.
+    Anula una venta de forma PERMANENTE, registrando la fecha/hora de anulación,
+    motivo y restituyendo automáticamente el stock a los productos correspondientes.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1384,6 +1424,8 @@ def cancel_sale(sale_id):
         sale = cursor.fetchone()
         if not sale or sale['status'] == 'cancelled':
             return False
+
+        now_str = get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
 
         # Obtener los productos vendidos y reponer stock
         cursor.execute("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?", (sale_id,))
@@ -1395,8 +1437,14 @@ def cancel_sale(sale_id):
             WHERE id = ?
             """, (item['quantity'], item['product_id']))
 
-        # Marcar la venta como anulada
-        cursor.execute("UPDATE sales SET status = 'cancelled' WHERE id = ?", (sale_id,))
+        # Marcar la venta como anulada permanentemente con timestamp y motivo
+        cursor.execute("""
+        UPDATE sales 
+        SET status = 'cancelled',
+            cancelled_at = ?,
+            cancellation_reason = ?
+        WHERE id = ?
+        """, (now_str, reason, sale_id))
         conn.commit()
         return True
     except Exception as e:
@@ -1642,7 +1690,7 @@ def get_sync_export_payload(since_sale_id=0, only_sales=False):
     if since_sale_id > 0:
         cursor.execute("""
             SELECT * FROM sales 
-            WHERE id > ? OR id IN (SELECT id FROM sales ORDER BY id DESC LIMIT 100)
+            WHERE id > ? OR id IN (SELECT id FROM sales ORDER BY id DESC LIMIT 150) OR status = 'cancelled'
             ORDER BY id ASC
         """, (since_sale_id,))
     else:
@@ -1781,14 +1829,30 @@ def apply_sync_payload(payload, sync_catalog=True):
         cursor.execute('SELECT id, status FROM sales WHERE id = ?', (sale_id,))
         existing = cursor.fetchone()
         
+        existing_status = existing['status'] if existing else None
+        incoming_status = s.get('status', 'completed')
+        
+        # REGLA FUNDAMENTAL DE INTEGRIDAD:
+        # Una venta anulada (sea local o remota) NUNCA debe 'revivir' a completada por sincronización.
+        # Si ya estaba anulada o la que llega está anulada, el estado final es 'cancelled'.
+        final_status = 'cancelled' if (existing_status == 'cancelled' or incoming_status == 'cancelled') else incoming_status
+        
+        # Si la venta estaba completada localmente y el payload remoto nos dice que fue anulada:
+        # Restituir stock una única vez
+        if existing and existing_status == 'completed' and incoming_status == 'cancelled':
+            cursor.execute('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', (sale_id,))
+            for it_p_id, it_qty in cursor.fetchall():
+                if it_p_id and it_qty:
+                    cursor.execute('UPDATE products SET stock = stock + ? WHERE id = ?', (it_qty, it_p_id))
+
         cursor.execute('''
             INSERT INTO sales (
                 id, seller_name, price_type, payment_method, notes,
                 subtotal_amount, surcharge_pct, surcharge_amount,
                 total_amount, total_cost, total_profit, total_items,
                 amount_paid, change_given,
-                status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                status, cancelled_at, cancellation_reason, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 seller_name = excluded.seller_name,
                 price_type = excluded.price_type,
@@ -1803,7 +1867,12 @@ def apply_sync_payload(payload, sync_catalog=True):
                 total_items = excluded.total_items,
                 amount_paid = excluded.amount_paid,
                 change_given = excluded.change_given,
-                status = excluded.status
+                status = CASE 
+                    WHEN sales.status = 'cancelled' OR excluded.status = 'cancelled' THEN 'cancelled'
+                    ELSE excluded.status
+                END,
+                cancelled_at = COALESCE(sales.cancelled_at, excluded.cancelled_at),
+                cancellation_reason = COALESCE(NULLIF(sales.cancellation_reason, ''), excluded.cancellation_reason)
         ''', (
             sale_id, s.get('seller_name', 'General'), s.get('price_type', 'minorista'),
             s.get('payment_method', 'Efectivo'), s.get('notes', ''),
@@ -1812,12 +1881,14 @@ def apply_sync_payload(payload, sync_catalog=True):
             float(s.get('total_cost', 0) or 0), float(s.get('total_profit', 0) or 0),
             int(s.get('total_items', 1) or 1),
             float(s.get('amount_paid', 0) or 0), float(s.get('change_given', 0) or 0),
-            s.get('status', 'completed'),
+            final_status,
+            s.get('cancelled_at'),
+            s.get('cancellation_reason', ''),
             s.get('created_at')
         ))
         if cursor.rowcount > 0:
             imported_sales += 1
-            if not existing and s.get('status') == 'completed':
+            if not existing and final_status == 'completed':
                 new_sale_ids.append(sale_id)
             
     # 5. Sincronizar Items de Venta (sale_items)
@@ -1837,7 +1908,7 @@ def apply_sync_payload(payload, sync_catalog=True):
         ))
 
     # Si estamos en modo sync_catalog=False (ej. pull de ventas remotas a local),
-    # descontar stock únicamente para las ventas remotas genuinamente nuevas
+    # descontar stock únicamente para las ventas remotas genuinamente nuevas y completadas
     if not sync_catalog and new_sale_ids:
         for s_id in new_sale_ids:
             cursor.execute('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', (s_id,))
@@ -1854,6 +1925,65 @@ def apply_sync_payload(payload, sync_catalog=True):
         "updated_products": updated_products,
         "synced_at": get_now_ar().strftime('%Y-%m-%d %H:%M:%S')
     }
+
+def get_stock_audit_data():
+    """
+    Retorna la auditoría completa de todos los productos cruzando stock actual vs ventas:
+    - ID, Nombre, Presentación, Categoría
+    - Stock actual
+    - Total de unidades vendidas en ventas válidas (completadas)
+    - Total de unidades en ventas anuladas
+    - Facturación generada por el producto
+    - Estado de inventario: 'ok', 'low', 'out'
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            p.id,
+            p.name,
+            p.presentation,
+            COALESCE(c.name, 'SIN CATEGORIA') as category_name,
+            p.stock,
+            p.price_minorista,
+            p.price_mayorista,
+            p.cost_price,
+            COALESCE(SUM(CASE WHEN s.status = 'completed' THEN si.quantity ELSE 0 END), 0) as total_sold_completed,
+            COALESCE(SUM(CASE WHEN s.status = 'cancelled' THEN si.quantity ELSE 0 END), 0) as total_sold_cancelled,
+            COALESCE(SUM(CASE WHEN s.status = 'completed' THEN si.subtotal ELSE 0 END), 0) as total_revenue,
+            COUNT(DISTINCT CASE WHEN s.status = 'completed' THEN s.id END) as completed_sales_count,
+            COUNT(DISTINCT CASE WHEN s.status = 'cancelled' THEN s.id END) as cancelled_sales_count
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN sale_items si ON p.id = si.product_id
+        LEFT JOIN sales s ON si.sale_id = s.id
+        GROUP BY p.id
+        ORDER BY c.order_index ASC, p.name ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    audit_list = []
+    for r in rows:
+        d = dict(r)
+        stock_val = int(d.get('stock', 0) or 0)
+        d['stock'] = stock_val
+        d['is_out_of_stock'] = stock_val <= 0
+        d['is_low_stock'] = 1 <= stock_val <= 3
+        audit_list.append(d)
+    return audit_list
+
+def batch_update_stock(stock_map):
+    """Actualiza en lote el stock de múltiples productos a partir de un dict {prod_id: new_stock}"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    for prod_id, new_stock in stock_map.items():
+        try:
+            cursor.execute("UPDATE products SET stock = ? WHERE id = ?", (int(new_stock), int(prod_id)))
+        except (ValueError, TypeError):
+            continue
+    conn.commit()
+    conn.close()
 
 
 def replace_db_from_bytes(data_bytes):

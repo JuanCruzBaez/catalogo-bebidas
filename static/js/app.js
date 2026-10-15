@@ -1254,6 +1254,51 @@ document.addEventListener('alpine:init', () => {
             }, 300);
         },
 
+        // Imprime el ticket de compra del carrito actual antes de confirmar la venta
+        printCartTicket() {
+            if (!this.cart || this.cart.length === 0) {
+                this.showToast("Agrega al menos un producto al carrito para imprimir el ticket", "warning");
+                return;
+            }
+
+            const seller = (this.sellerName || '').trim() || 'Caja';
+            localStorage.setItem('pos_seller_name', seller);
+            this.sellerName = seller;
+
+            const paid = parseFloat(this.cashReceived) || 0;
+            const change = (this.paymentMethod === 'Efectivo' && paid >= this.cartTotal) ? (paid - this.cartTotal) : 0;
+
+            const cartSale = {
+                id: null,
+                is_pre_ticket: true,
+                created_at_local: new Date().toLocaleString('es-AR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                }),
+                seller_name: seller,
+                price_type: this.salesPriceType,
+                payment_method: this.paymentMethod,
+                subtotal_amount: this.cartSubtotal,
+                surcharge_pct: this.paymentSurchargePct,
+                surcharge_amount: this.cartSurchargeAmount,
+                total_amount: this.cartTotal,
+                total_items: this.cartTotalItems,
+                amount_paid: this.paymentMethod === 'Efectivo' ? paid : 0,
+                change_given: this.paymentMethod === 'Efectivo' ? change : 0,
+                items: this.cart.map(it => ({
+                    product_id: it.product_id,
+                    product_name: it.name,
+                    presentation: it.presentation || '',
+                    price_type: it.price_type || this.salesPriceType,
+                    unit_price: it.unit_price,
+                    quantity: it.quantity,
+                    subtotal: it.subtotal || (it.unit_price * it.quantity)
+                }))
+            };
+
+            this.printCustomerTicket(cartSale);
+        },
+
         // Carga la venta si no tiene ítems y lanza la impresión del ticket para el cliente
         async printCustomerTicketById(saleId) {
             if (!saleId) return;
@@ -1286,15 +1331,25 @@ document.addEventListener('alpine:init', () => {
         printCustomerTicket(sale) {
             if (!sale) return;
             if (!sale.items || sale.items.length === 0) {
-                this.printCustomerTicketById(sale.id);
+                if (sale.id && typeof sale.id === 'number') {
+                    this.printCustomerTicketById(sale.id);
+                }
                 return;
             }
 
             const businessName = (this.settings.business_name || 'BEBIDAS 25 DE MAYO').toUpperCase();
             const bannerPhrase = this.settings.banner_phrase || 'PARA TU NEGOCIO Y PARA VOS';
-            const address = this.settings.address || 'Av. 25 de Mayo 343';
+            const address = this.settings.address || 'Av. 25 de Mayo 434, Lanús Oeste';
             const whatsapp = this.settings.whatsapp_number || '+54 9 11 7626 5350';
-            const ticketId = '#' + String(sale.id).padStart(4, '0');
+            
+            let ticketId = '';
+            if (sale.is_pre_ticket || !sale.id) {
+                ticketId = 'TICKET DE COMPRA';
+            } else if (typeof sale.id === 'number' || (!isNaN(Number(sale.id)) && String(sale.id).length < 8)) {
+                ticketId = '#' + String(sale.id).padStart(4, '0');
+            } else {
+                ticketId = String(sale.id);
+            }
             const dateStr = sale.created_at_local || sale.created_at || new Date().toLocaleString('es-AR');
             const seller = sale.seller_name || 'Caja';
             const modality = (sale.price_type || 'minorista').toUpperCase();
@@ -1317,7 +1372,7 @@ document.addEventListener('alpine:init', () => {
                 itemsRows += `
                     <tr style="border-bottom: 1px dashed #ccc;">
                         <td style="padding: 5px 0 4px 0; text-align: left; vertical-align: top;">
-                            <div style="font-weight: bold; font-size: 11.5px; color: #000; text-transform: uppercase;">${item.product_name}${pres}</div>
+                            <div style="font-weight: bold; font-size: 11.5px; color: #000; text-transform: uppercase;">${item.product_name || item.name || "Producto"}${pres}</div>
                             ${qtyDetail}
                         </td>
                         <td style="padding: 5px 0 4px 0; text-align: right; vertical-align: bottom; font-weight: bold; font-size: 12px; white-space: nowrap;">
@@ -1401,7 +1456,7 @@ document.addEventListener('alpine:init', () => {
     <div class="divider"></div>
 
     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
-        <span>TICKET: <strong>${ticketId}</strong></span>
+        <span>${sale.is_pre_ticket ? "COMPROBANTE:" : "TICKET:"} <strong>${ticketId}</strong></span>
         <span>${dateStr}</span>
     </div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
@@ -1432,7 +1487,7 @@ document.addEventListener('alpine:init', () => {
     <div style="margin-top: 4px;">
         ${financialRows}
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 900; padding: 4px 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; margin: 4px 0;">
-            <span>TOTAL COBRADO:</span>
+            <span>${sale.is_pre_ticket ? "TOTAL A PAGAR:" : "TOTAL COBRADO:"}</span>
             <span>${this.formatCurrency(sale.total_amount)}</span>
         </div>
         ${cashDetails}

@@ -587,6 +587,27 @@
         </div>
     </div>
 
+    <!-- Modal Lightbox de Zoom de Producto para Máxima Legibilidad -->
+    <div id="imageZoomModal" class="image-zoom-modal" onclick="if(event.target === this) window.closeImageZoomModal()">
+        <div class="image-zoom-content">
+            <button class="image-zoom-close" onclick="window.closeImageZoomModal()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+            <div class="image-zoom-img-box">
+                <img id="zoomModalImg" src="" alt="Detalle del Producto">
+            </div>
+            <div class="image-zoom-details">
+                <span id="zoomModalCategory" class="image-zoom-category"></span>
+                <h3 id="zoomModalTitle" class="image-zoom-title"></h3>
+                <div id="zoomModalPres" class="image-zoom-pres"></div>
+                <div id="zoomModalPrices" class="image-zoom-prices"></div>
+                <div class="image-zoom-actions">
+                    <button id="zoomModalCartBtn" class="image-zoom-btn-cart">
+                        <i class="fa-solid fa-cart-plus"></i> Agregar al Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toastNotification" class="toast-notification"></div>
 

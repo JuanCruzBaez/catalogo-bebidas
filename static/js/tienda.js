@@ -791,6 +791,149 @@
         }
     }
 
+    // ==========================================
+    // SISTEMA DE ZOOM LIGHTBOX PARA MÁXIMA LEGIBILIDAD
+    // ==========================================
+    function openImageZoomModal(item) {
+        const modal = document.getElementById('imageZoomModal');
+        const img = document.getElementById('zoomModalImg');
+        const cat = document.getElementById('zoomModalCategory');
+        const title = document.getElementById('zoomModalTitle');
+        const pres = document.getElementById('zoomModalPres');
+        const prices = document.getElementById('zoomModalPrices');
+        const cartBtn = document.getElementById('zoomModalCartBtn');
+
+        if (!modal || !img) return;
+
+        img.src = item.image || '/uploads/logo.jpg';
+        img.alt = item.name || '';
+        if (cat) cat.innerText = item.category || 'BEBIDAS 25 DE MAYO';
+        if (title) title.innerText = item.name || '';
+        if (pres) pres.innerText = item.presentation || '';
+
+        if (prices) {
+            let pricesHtml = '';
+            if (item.priceMinorista !== undefined && item.priceMinorista !== null) {
+                const pMin = typeof item.priceMinorista === 'number' ? formatCurrency(item.priceMinorista) : item.priceMinorista;
+                pricesHtml += `
+                    <div class="image-zoom-price-box">
+                        <span class="image-zoom-price-label">Precio Minorista</span>
+                        <span class="image-zoom-price-val">${pMin}</span>
+                    </div>
+                `;
+            }
+            if (item.priceMayorista !== undefined && item.priceMayorista !== null && item.priceMayorista > 0) {
+                pricesHtml += `
+                    <div class="image-zoom-price-box mayorista">
+                        <span class="image-zoom-price-label">Precio Mayorista</span>
+                        <span class="image-zoom-price-val">${formatCurrency(item.priceMayorista)}</span>
+                    </div>
+                `;
+            }
+            prices.innerHTML = pricesHtml;
+        }
+
+        if (cartBtn) {
+            cartBtn.onclick = () => {
+                if (item.isCombo && item.comboObj) {
+                    addToCart({
+                        id: item.comboObj.id,
+                        type: 'combo',
+                        name: item.comboObj.name,
+                        presentation: 'Promo Pack',
+                        price: item.comboObj.price,
+                        qty: 1,
+                        image: item.comboObj.image_path
+                    });
+                } else if (item.productId) {
+                    const prod = state.products.find(p => String(p.id) === String(item.productId));
+                    if (prod) {
+                        const price = state.priceMode === 'mayorista' ? (prod.price_mayorista || prod.price_minorista) : prod.price_minorista;
+                        addToCart({
+                            id: prod.id,
+                            type: 'product',
+                            name: prod.name,
+                            presentation: prod.presentation,
+                            price: price,
+                            qty: 1,
+                            image: prod.image_path
+                        });
+                    }
+                }
+                closeImageZoomModal();
+            };
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeImageZoomModal() {
+        const modal = document.getElementById('imageZoomModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    window.closeImageZoomModal = closeImageZoomModal;
+    window.openImageZoomModal = openImageZoomModal;
+
+    // Delegación de clicks en imágenes de productos y combos
+    document.addEventListener('click', (e) => {
+        // 1. Click en imagen de producto
+        const prodImgBox = e.target.closest('.product-image-container');
+        if (prodImgBox) {
+            const card = prodImgBox.closest('.product-card');
+            if (card) {
+                const prodId = card.getAttribute('data-product-id');
+                const prod = state.products.find(p => String(p.id) === String(prodId));
+                if (prod) {
+                    openImageZoomModal({
+                        image: prod.image_path ? `/${prod.image_path}` : '/uploads/logo.jpg',
+                        name: prod.name,
+                        category: prod.category_name,
+                        presentation: prod.presentation || 'Unidad',
+                        priceMinorista: prod.price_minorista,
+                        priceMayorista: prod.price_mayorista,
+                        productId: prod.id,
+                        isCombo: false
+                    });
+                }
+            }
+            return;
+        }
+
+        // 2. Click en imagen de combo
+        const comboImgBox = e.target.closest('.combo-image-box');
+        if (comboImgBox) {
+            const card = comboImgBox.closest('.combo-card');
+            const img = comboImgBox.querySelector('img');
+            const titleEl = card ? card.querySelector('.combo-title') : null;
+            if (img && titleEl) {
+                const comboName = titleEl.innerText.trim();
+                const comboObj = state.combos.find(c => c.name.trim().toLowerCase() === comboName.toLowerCase());
+                openImageZoomModal({
+                    image: img.src,
+                    name: comboName,
+                    category: 'COMBO ESPECIAL',
+                    presentation: 'Promo Pack',
+                    priceMinorista: comboObj ? comboObj.price : null,
+                    priceMayorista: null,
+                    comboObj: comboObj,
+                    isCombo: true
+                });
+            }
+            return;
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeImageZoomModal();
+        }
+    });
+
     // Exponer métodos para interacción directa en HTML (onclick)
     window.tiendaApp = {
         addProductById: function (id) {

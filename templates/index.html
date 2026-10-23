@@ -374,12 +374,12 @@
                                 <tr class="hover:bg-neutral-900/60 transition-colors" :class="{'opacity-60': (prod.stock || 0) <= 0}">
                                     <!-- Imagen -->
                                     <td class="px-3 py-2.5 text-center">
-                                        <div class="w-10 h-10 rounded-lg overflow-hidden bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto">
+                                        <div class="w-14 h-14 rounded-lg overflow-hidden bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto relative group">
                                             <template x-if="prod.image_path">
-                                                <img :src="'/' + prod.image_path" class="w-full h-full object-contain">
+                                                <img :src="'/' + prod.image_path" class="w-full h-full object-contain p-0.5 group-hover:scale-125 transition-transform duration-200">
                                             </template>
                                             <template x-if="!prod.image_path">
-                                                <span class="text-lg">🍾</span>
+                                                <span class="text-xl">🍾</span>
                                             </template>
                                         </div>
                                     </td>
@@ -472,9 +472,9 @@
                             <span x-show="(prod.stock || 0) <= 0" class="absolute top-3 right-3 bg-rose-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow z-10">AGOTADO</span>
 
                             <div>
-                                <div class="relative w-full h-36 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-neutral-800 mb-3">
+                                <div class="relative w-full h-56 bg-gradient-to-b from-neutral-900 to-black rounded-lg overflow-hidden flex items-center justify-center border border-neutral-800 mb-3 group cursor-pointer">
                                     <template x-if="prod.image_path">
-                                        <img :src="'/' + prod.image_path" class="w-full h-full object-contain p-2">
+                                        <img :src="'/' + prod.image_path" class="w-full h-full object-contain p-1 group-hover:scale-110 transition-transform duration-200">
                                     </template>
                                     <template x-if="!prod.image_path">
                                         <span class="text-4xl">🍾</span>
@@ -923,9 +923,9 @@
                                 <div class="flex items-start space-x-3">
                                     
                                     <!-- Imagen del Producto -->
-                                    <div class="w-14 h-14 bg-neutral-900 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-neutral-800">
+                                    <div class="w-16 h-16 bg-neutral-900 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-neutral-800 group">
                                         <template x-if="prod.image_path">
-                                            <img :src="'/' + prod.image_path" :alt="prod.name" class="w-full h-full object-contain p-1" loading="lazy">
+                                            <img :src="'/' + prod.image_path" :alt="prod.name" class="w-full h-full object-contain p-0.5 group-hover:scale-110 transition-transform duration-200" loading="lazy">
                                         </template>
                                         <template x-if="!prod.image_path">
                                             <i data-lucide="wine" class="w-6 h-6 text-neutral-700"></i>

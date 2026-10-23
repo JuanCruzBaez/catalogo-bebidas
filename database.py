@@ -698,12 +698,88 @@ def get_public_categories():
     conn.close()
     return [dict(r) for r in rows]
 
+
+COMBO_PRODUCT_MAPPING = {
+    1: 173,  # Fernet Branca + Coca
+    2: 175,  # Absolut + Speed
+    3: 177,  # JW Red + Speed
+    4: 172,  # Skyy Saborizado + Speed
+    6: 180,  # Corona Botella x6
+    7: 179,  # Heineken Latones x6
+    8: 174,  # Skyy Jungle + Speed
+    9: 176,  # Jaggermeister + Speed
+    10: 178, # Coca-Cola x8
+    11: 181, # Jack Daniel's N°7 + Speed
+    12: 182, # Jack Daniel's Apple + Speed
+    13: 183, # JW Black + Speed
+    14: 184, # Champagne Alvear + Speed
+    15: 185, # Imperial Lager x6
+    16: 186, # Imperial APA x6
+    17: 187, # Corona Lata x6
+    18: 188, # Heineken Lata x6
+    19: 189, # Miller x6
+    20: 190, # Quilmes Clásica x6
+    21: 191, # Quilmes Latones x6
+    22: 192, # Quilmes Stout x6
+    23: 193, # Stella Botella x6
+    24: 194, # Stella Lata x6
+    25: 195, # Stella Noire x6
+    26: 196, # Stella Latones x6
+    27: 197, # Schneider x6
+    28: 198, # Warsteiner x6
+}
+
+def sync_combos_from_products(cursor=None):
+    """
+    Sincroniza automáticamente los precios de la tabla combos
+    con el precio_minorista actualizado en la tabla products.
+    Garantiza que cualquier cambio en la app de stock/catálogo
+    se refleje de inmediato en la tienda web local y online.
+    """
+    should_close = False
+    if cursor is None:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        should_close = True
+    else:
+        conn = cursor.connection
+        
+    try:
+        for combo_id, prod_id in COMBO_PRODUCT_MAPPING.items():
+            cursor.execute("SELECT price_minorista FROM products WHERE id = ?", (prod_id,))
+            p_row = cursor.fetchone()
+            if not p_row:
+                continue
+            new_price = float(p_row[0] or 0)
+            if new_price <= 0:
+                continue
+                
+            cursor.execute("SELECT price, regular_price FROM combos WHERE id = ?", (combo_id,))
+            c_row = cursor.fetchone()
+            if not c_row:
+                continue
+            old_price, old_reg = float(c_row[0] or 0), float(c_row[1] or 0)
+            
+            if abs(new_price - old_price) > 0.01:
+                ratio = (old_reg / old_price) if old_price > 0 else 1.12
+                new_reg = round(new_price * ratio / 500) * 500
+                if new_reg <= new_price:
+                    new_reg = round(new_price * 1.12 / 500) * 500
+                cursor.execute("UPDATE combos SET price = ?, regular_price = ? WHERE id = ?", (new_price, new_reg, combo_id))
+        conn.commit()
+    except Exception as e:
+        print(f"[SYNC COMBOS ERROR] {e}")
+    finally:
+        if should_close:
+            conn.close()
+
 def get_public_combos():
     """
     Retorna combos activos para la tienda de clientes con sus detalles e ítems incluidos.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
+    sync_combos_from_products(cursor)
     cursor.execute("""
         SELECT id, name, description, badge, price, regular_price, image_path, items_json, order_index
         FROM combos

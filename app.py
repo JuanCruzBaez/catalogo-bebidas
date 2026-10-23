@@ -33,6 +33,113 @@ def allowed_file(filename):
 SYNC_SECRET_KEY = os.environ.get('SYNC_SECRET_KEY', 'bebidas25demayo-sync-secret-2026')
 IS_RENDER = bool(os.environ.get('RENDER') or os.environ.get('RENDER_SERVICE_ID'))
 
+# ----------------- SINCRONIZACION AUTOMATICA DE IMAGENES (LOCAL -> RENDER) -----------------
+SYNCED_IMAGES_CACHE_FILE = os.path.join(UPLOAD_FOLDER, '.synced_images.json')
+
+def load_synced_images_cache():
+    if os.path.exists(SYNCED_IMAGES_CACHE_FILE):
+        try:
+            with open(SYNCED_IMAGES_CACHE_FILE, 'r', encoding='utf-8') as f:
+                return set(json.load(f))
+        except Exception:
+            pass
+    return set()
+
+def save_synced_images_cache(synced_set):
+    try:
+        with open(SYNCED_IMAGES_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(list(synced_set), f, indent=2)
+    except Exception:
+        pass
+
+def mark_image_as_synced(rel_path):
+    if not rel_path:
+        return
+    cache = load_synced_images_cache()
+    clean = rel_path.replace('\\', '/').strip().lstrip('/')
+    cache.add(clean)
+    save_synced_images_cache(cache)
+
+def sync_single_image_to_remote(relative_filepath):
+    """Sube un archivo de imagen especifico al servidor web online en Render"""
+    if IS_RENDER or not relative_filepath:
+        return False
+    try:
+        import requests
+        remote_url = get_remote_sync_url()
+        headers = {'X-Sync-Token': SYNC_SECRET_KEY}
+        
+        clean_path = relative_filepath.replace('\\', '/').strip().lstrip('/')
+        target_path = clean_path
+        if target_path.startswith('uploads/'):
+            target_path = target_path[len('uploads/'):]
+            
+        subfolder = ''
+        filename = target_path
+        if '/' in target_path:
+            subfolder, filename = target_path.rsplit('/', 1)
+            
+        local_full_path = os.path.join(app.config['UPLOAD_FOLDER'], subfolder, filename) if subfolder else os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(local_full_path):
+            return False
+            
+        with open(local_full_path, 'rb') as f:
+            files = {'file': (filename, f)}
+            data = {'subfolder': subfolder} if subfolder else {}
+            res = requests.post(f"{remote_url}/api/sync/upload-file", files=files, data=data, headers=headers, timeout=25)
+            if res.ok:
+                mark_image_as_synced(relative_filepath)
+                return True
+    except Exception as e:
+        print(f"[SYNC IMAGE ERROR] {str(e)}")
+    return False
+
+def sync_image_async(relative_filepath):
+    """Dispara la subida de una imagen en un hilo secundario para no demorar al usuario"""
+    if not IS_RENDER and relative_filepath:
+        threading.Thread(target=sync_single_image_to_remote, args=(relative_filepath,), daemon=True).start()
+
+def sync_all_images_to_remote(force=False):
+    """
+    Sube todas las imagenes de productos, combos y logo al servidor web online.
+    Si force=False, sube solo las que no esten en la cache local de subidas.
+    Retorna el numero de imagenes sincronizadas.
+    """
+    if IS_RENDER:
+        return 0
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT image_path FROM products WHERE image_path IS NOT NULL AND trim(image_path) != ''")
+        prod_imgs = [r['image_path'] for r in cursor.fetchall()]
+        cursor.execute("SELECT image_path FROM combos WHERE image_path IS NOT NULL AND trim(image_path) != ''")
+        combo_imgs = [r['image_path'] for r in cursor.fetchall()]
+        conn.close()
+        
+        all_imgs = set(prod_imgs + combo_imgs)
+        try:
+            settings = database.get_all_settings()
+            if settings.get('logo_path'):
+                all_imgs.add(settings['logo_path'])
+        except Exception:
+            pass
+            
+        synced_cache = set() if force else load_synced_images_cache()
+        pending_imgs = [img for img in all_imgs if img.replace('\\', '/').strip().lstrip('/') not in synced_cache]
+        
+        to_upload = list(all_imgs) if force else pending_imgs
+        if not to_upload:
+            return 0
+            
+        uploaded = 0
+        for rel_path in to_upload:
+            if sync_single_image_to_remote(rel_path):
+                uploaded += 1
+        return uploaded
+    except Exception as e:
+        print(f"[SYNC ALL IMAGES ERROR] {str(e)}")
+        return 0
+
 def get_remote_sync_url():
     """Obtiene la URL remota del servidor web para sincronización"""
     try:
@@ -63,6 +170,7 @@ def sync_push_to_remote():
         }
         payload = database.get_sync_export_payload(since_sale_id=0)
         requests.post(f"{remote_url}/api/sync/push", json=payload, headers=headers, timeout=12)
+        threading.Thread(target=sync_all_images_to_remote, kwargs={'force': False}, daemon=True).start()
     except Exception:
         # Silencioso para no interferir con la caja física
         pass
@@ -335,6 +443,7 @@ def api_create_product():
 
     if image_path:
         data['image_path'] = image_path
+        sync_image_async(image_path)
 
     # Cálculos automáticos de escalas si no vienen especificados
     p_may = float(data.get('price_mayorista', 0) or 0)
@@ -371,6 +480,7 @@ def api_update_product(prod_id):
             file.save(save_dest)
             image_path = f"uploads/{filename}"
             data['image_path'] = image_path
+            sync_image_async(image_path)
 
     database.update_product(prod_id, data)
     updated = database.get_product(prod_id)
@@ -531,6 +641,7 @@ def api_upload_logo():
         
         logo_rel_path = f"uploads/{filename}"
         database.update_settings({"logo_path": logo_rel_path})
+        sync_image_async(logo_rel_path)
         return jsonify({"success": True, "logo_path": logo_rel_path})
     
     return jsonify({"error": "Formato de imagen no válido"}), 400
@@ -972,11 +1083,20 @@ def api_sync_trigger():
     except Exception:
         pass
 
+    # 5. Sincronizar fotos pendientes hacia la web online
+    synced_images_count = 0
+    try:
+        synced_images_count = sync_all_images_to_remote(force=False)
+    except Exception:
+        pass
+
+    msg = f"Sincronización exitosa con la web online ({synced_images_count} fotos actualizadas)." if synced_images_count > 0 else "Sincronización exitosa con la web online."
     return jsonify({
         "success": True,
-        "message": "Sincronización exitosa con la web online.",
+        "message": msg,
         "imported_sales": push_result.get('imported_sales', 0),
         "updated_products": push_result.get('updated_products', 0),
+        "synced_images": synced_images_count,
         "remote_url": remote_url,
         "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
     })
@@ -1013,6 +1133,27 @@ def api_sync_trigger_full_upload():
     except Exception as e:
         return jsonify({"error": f"Error al subir base de datos: {str(e)}"}), 502
 
+
+
+@app.route('/api/sync/images', methods=['POST'])
+def api_sync_images():
+    """
+    Sube todas las fotos de productos y combos al servidor web online.
+    Soporta ?force=1 o {'force': true} para forzar la resubida completa.
+    """
+    data = request.get_json(silent=True) or {}
+    force = bool(data.get('force') or request.args.get('force') in ('1', 'true', 'True'))
+    try:
+        count = sync_all_images_to_remote(force=force)
+        msg = f"Se sincronizaron {count} fotos con la web online exitosamente." if count > 0 else "Todas las fotos de tus productos ya están sincronizadas con la web online."
+        return jsonify({
+            "success": True,
+            "uploaded": count,
+            "message": msg,
+            "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({"error": f"Error al sincronizar imágenes: {str(e)}"}), 500
 
 # ----------------- INICIALIZACIÓN DE LA APLICACIÓN -----------------
 

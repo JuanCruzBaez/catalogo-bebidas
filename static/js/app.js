@@ -1973,7 +1973,8 @@ document.addEventListener('alpine:init', () => {
                     this.lastSyncTime = data.timestamp;
                     this.syncState = 'synced';
                     localStorage.setItem('last_sync_time', data.timestamp);
-                    this.showToast(`¡Sincronizado! ${data.imported_sales || 0} ventas y ${data.updated_products || 0} productos actualizados en la web.`, "success");
+                    let extraImgMsg = data.synced_images ? ` (${data.synced_images} fotos subidas)` : '';
+                    this.showToast(`¡Sincronizado! ${data.imported_sales || 0} ventas y ${data.updated_products || 0} productos actualizados en la web${extraImgMsg}.`, "success");
                     await this.fetchProducts();
                     await this.fetchSales();
                     await this.fetchSalesSummary();
@@ -1985,6 +1986,38 @@ document.addEventListener('alpine:init', () => {
                 console.error("Error en syncWithWeb:", err);
                 this.syncState = 'error';
                 this.showToast("Error de conexión al sincronizar con la web online", "error");
+            } finally {
+                this.isSyncing = false;
+                this.$nextTick(() => {
+                    if (window.lucide) lucide.createIcons();
+                });
+            }
+        },
+
+        async syncImagesWithWeb(force = false) {
+            if (this.isSyncing) return;
+            this.isSyncing = true;
+            this.syncState = 'syncing';
+            this.showToast(force ? "Sincronizando todas las fotos con la web online..." : "Verificando fotos para la web online...", "info");
+
+            try {
+                const res = await fetch('/api/sync/images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force: force })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    this.syncState = 'synced';
+                    this.showToast(data.message, "success");
+                } else {
+                    this.syncState = 'error';
+                    this.showToast(data.error || "Error al sincronizar imágenes con la web", "error");
+                }
+            } catch (err) {
+                console.error("Error en syncImagesWithWeb:", err);
+                this.syncState = 'error';
+                this.showToast("Error de conexión al sincronizar imágenes", "error");
             } finally {
                 this.isSyncing = false;
                 this.$nextTick(() => {

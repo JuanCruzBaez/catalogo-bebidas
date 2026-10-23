@@ -727,6 +727,7 @@ COMBO_PRODUCT_MAPPING = {
     26: 196, # Stella Latones x6
     27: 197, # Schneider x6
     28: 198, # Warsteiner x6
+    29: 275, # Smirnoff Saborizado + Speed
 }
 
 def sync_combos_from_products(cursor=None):

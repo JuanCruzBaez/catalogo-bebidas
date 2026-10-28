@@ -1,12 +1,12 @@
 /**
  * BEBIDAS 25 DE MAYO - LÓGICA DE TIENDA Y PEDIDOS PARA CLIENTES
- * Manejo reactivo de catálogo seguro, combos, carrusel, carrito y checkout
+ * Modo Claro Comercial + Menú Hamburguesa de Categorías + Barra Progreso Mayorista
+ * + Switch Minorista/Mayorista + Indicador en Tarjetas + Botones Rápidos Flotantes
  */
 
 (function () {
     'use strict';
 
-    // Estado global de la aplicación cliente
     const state = {
         config: {
             business_name: 'BEBIDAS 25 DE MAYO',
@@ -19,19 +19,18 @@
         categories: [],
         cart: [],
         activeCategory: 'all',
+        priceMode: 'minorista', // 'minorista' | 'mayorista'
         searchQuery: '',
         sortBy: 'featured',
         carouselIndex: 0,
         carouselTimer: null
     };
 
-    // Utilidad para formatear moneda en Pesos Argentinos ($ 26.000)
     function formatCurrency(amount) {
         if (isNaN(amount)) return '$ 0';
         return '$ ' + Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
-    // Toast de notificación
     function showToast(message, icon = 'fa-check') {
         const toast = document.getElementById('toastNotification');
         if (!toast) return;
@@ -41,6 +40,53 @@
         toast.hideTimeout = setTimeout(() => {
             toast.classList.remove('show');
         }, 2600);
+    }
+
+    // ----------------- CÁLCULO DE TOTALES Y MAYORISTA AUTOMÁTICO -----------------
+    function getCartTotals() {
+        let retailSubtotal = 0;
+        let wholesaleSubtotal = 0;
+        let totalItems = 0;
+
+        state.cart.forEach(it => {
+            const qty = parseInt(it.qty || 1, 10);
+            totalItems += qty;
+            if (it.type === 'combo') {
+                const p = parseFloat(it.price) || 0;
+                retailSubtotal += p * qty;
+                wholesaleSubtotal += p * qty;
+            } else {
+                const prod = state.products.find(p => String(p.id) === String(it.id));
+                const pMin = prod ? (parseFloat(prod.price_minorista) || 0) : (parseFloat(it.priceMinorista || it.price) || 0);
+                const pMay = prod ? (parseFloat(prod.price_mayorista) || pMin) : (parseFloat(it.priceMayorista || it.price) || pMin);
+                retailSubtotal += pMin * qty;
+                wholesaleSubtotal += pMay * qty;
+            }
+        });
+
+        const threshold = state.config.wholesale_threshold || 100000;
+        const qualifiesWholesale = retailSubtotal >= threshold;
+        const effectiveTotal = qualifiesWholesale ? wholesaleSubtotal : retailSubtotal;
+        const savings = qualifiesWholesale ? Math.max(0, retailSubtotal - wholesaleSubtotal) : 0;
+        const remainingForWholesale = Math.max(0, threshold - retailSubtotal);
+        const progressPct = Math.min(100, Math.round((retailSubtotal / threshold) * 100));
+
+        return {
+            totalItems,
+            retailSubtotal,
+            wholesaleSubtotal,
+            qualifiesWholesale,
+            effectiveTotal,
+            savings,
+            remainingForWholesale,
+            progressPct,
+            threshold
+        };
+    }
+
+    function getCartQtyForItem(id, type = 'product') {
+        const found = state.cart.find(it => String(it.id) === String(id) && it.type === type);
+        return found ? found.qty : 0;
     }
 
     // ----------------- GESTIÓN DEL CARRITO (LOCALSTORAGE) -----------------
@@ -61,12 +107,16 @@
             console.error('Error al guardar carrito:', e);
         }
         updateCartUI();
+        renderFilteredProducts();
+        renderCombos();
     }
 
     function addToCart(item) {
-        const existing = state.cart.find(it => it.id === item.id && it.type === item.type);
+        const existing = state.cart.find(it => String(it.id) === String(item.id) && it.type === item.type);
         if (existing) {
             existing.qty += (item.qty || 1);
+            if (item.priceMinorista) existing.priceMinorista = item.priceMinorista;
+            if (item.priceMayorista) existing.priceMayorista = item.priceMayorista;
         } else {
             state.cart.push({
                 id: item.id,
@@ -74,12 +124,14 @@
                 name: item.name,
                 presentation: item.presentation || '',
                 price: parseFloat(item.price) || 0,
+                priceMinorista: parseFloat(item.priceMinorista || item.price) || 0,
+                priceMayorista: parseFloat(item.priceMayorista || item.price) || 0,
                 qty: parseInt(item.qty || 1, 10),
                 image: item.image || ''
             });
         }
         saveCartToStorage();
-        showToast(`Se agregó ${item.name} al carrito`);
+        showToast(`Se agregó ${item.name} al pedido`);
     }
 
     function updateCartQty(index, change) {
@@ -96,14 +148,12 @@
         const name = state.cart[index].name;
         state.cart.splice(index, 1);
         saveCartToStorage();
-        showToast(`Se eliminó ${name} del carrito`, 'fa-trash');
+        showToast(`Se quitó ${name} del pedido`, 'fa-trash');
     }
 
     function updateCartUI() {
-        const totalItems = state.cart.reduce((sum, it) => sum + it.qty, 0);
-        const subtotal = state.cart.reduce((sum, it) => sum + (it.price * it.qty), 0);
+        const totals = getCartTotals();
 
-        // Actualizar badges e indicadores
         const countBadge = document.getElementById('cartCountBadge');
         const headerTotal = document.getElementById('cartTotalHeader');
         const drawerCount = document.getElementById('cartDrawerCount');
@@ -111,26 +161,66 @@
         const cartSubtotalEl = document.getElementById('cartSubtotal');
         const cartTotalEl = document.getElementById('cartTotal');
         const wholesaleNotice = document.getElementById('wholesaleNoticeBox');
-        
-        // Elementos barra móvil estilo La Barra CCU
+        const cartSavingsRow = document.getElementById('cartSavingsRow');
+        const cartSavingsAmount = document.getElementById('cartSavingsAmount');
+
+        // Barra de progreso mayorista en el carrito
+        const progressText = document.getElementById('wholesaleProgressText');
+        const progressFill = document.getElementById('wholesaleProgressFill');
+
+        // Elementos barra móvil
         const mobileBottomBar = document.getElementById('mobileBottomBar');
         const mobileBarBadge = document.getElementById('mobileBarBadge');
         const mobileBarCountNum = document.getElementById('mobileBarCountNum');
         const mobileBarTotal = document.getElementById('mobileBarTotal');
+        const mobileBarStrip = document.getElementById('mobileBarWholesaleStrip');
 
-        if (countBadge) countBadge.textContent = totalItems;
-        if (headerTotal) headerTotal.textContent = formatCurrency(subtotal);
-        if (drawerCount) drawerCount.textContent = totalItems;
-        if (floatingCount) floatingCount.textContent = totalItems;
-        if (cartSubtotalEl) cartSubtotalEl.textContent = formatCurrency(subtotal);
-        if (cartTotalEl) cartTotalEl.textContent = formatCurrency(subtotal);
+        if (countBadge) countBadge.textContent = totals.totalItems;
+        if (headerTotal) headerTotal.textContent = formatCurrency(totals.effectiveTotal);
+        if (drawerCount) drawerCount.textContent = totals.totalItems;
+        if (floatingCount) floatingCount.textContent = totals.totalItems;
+        if (cartSubtotalEl) cartSubtotalEl.textContent = formatCurrency(totals.retailSubtotal);
+        if (cartTotalEl) cartTotalEl.textContent = formatCurrency(totals.effectiveTotal);
+
+        if (cartSavingsRow && cartSavingsAmount) {
+            if (totals.qualifiesWholesale && totals.savings > 0) {
+                cartSavingsRow.style.display = 'flex';
+                cartSavingsAmount.textContent = '- ' + formatCurrency(totals.savings);
+            } else {
+                cartSavingsRow.style.display = 'none';
+            }
+        }
+
+        // Actualizar barra de progreso mayorista ($100.000)
+        if (progressFill) {
+            progressFill.style.width = `${totals.progressPct}%`;
+        }
+        if (progressText) {
+            if (totals.totalItems === 0) {
+                progressText.innerHTML = `<i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Superando los <strong>$ 100.000</strong> se activan los <strong>Precios Mayoristas</strong> automáticamente.`;
+            } else if (totals.qualifiesWholesale) {
+                progressText.innerHTML = `🎉 <strong>¡PRECIO MAYORISTA ACTIVADO!</strong> Estás ahorrando <strong>${formatCurrency(totals.savings)}</strong> en tu pedido.`;
+            } else {
+                progressText.innerHTML = `🔥 Te faltan <strong>${formatCurrency(totals.remainingForWholesale)}</strong> para activar el <strong>Precio Mayorista</strong> en todo tu pedido (${totals.progressPct}%).`;
+            }
+        }
 
         // Barra inferior móvil
-        if (mobileBarBadge) mobileBarBadge.textContent = totalItems;
-        if (mobileBarCountNum) mobileBarCountNum.textContent = totalItems;
-        if (mobileBarTotal) mobileBarTotal.textContent = formatCurrency(subtotal);
+        if (mobileBarBadge) mobileBarBadge.textContent = totals.totalItems;
+        if (mobileBarCountNum) mobileBarCountNum.textContent = totals.totalItems;
+        if (mobileBarTotal) mobileBarTotal.textContent = formatCurrency(totals.effectiveTotal);
+        if (mobileBarStrip) {
+            if (totals.qualifiesWholesale) {
+                mobileBarStrip.innerHTML = `🎉 ¡Precio Mayorista activo! Ahorrás <strong style="color:#4ade80;">${formatCurrency(totals.savings)}</strong>`;
+                mobileBarStrip.style.background = '#14532d';
+            } else {
+                mobileBarStrip.innerHTML = `🔥 Sumá <strong style="color:#facc15;">${formatCurrency(totals.remainingForWholesale)}</strong> más para activar Precio Mayorista`;
+                mobileBarStrip.style.background = '#1e293b';
+            }
+        }
+
         if (mobileBottomBar) {
-            if (totalItems > 0) {
+            if (totals.totalItems > 0) {
                 mobileBottomBar.classList.add('visible');
                 if (floatingCount && floatingCount.parentElement) floatingCount.parentElement.style.display = 'none';
             } else {
@@ -139,16 +229,10 @@
             }
         }
 
-        // Aviso mayorista si califica
         if (wholesaleNotice) {
-            if (subtotal >= state.config.wholesale_threshold) {
-                wholesaleNotice.style.display = 'flex';
-            } else {
-                wholesaleNotice.style.display = 'none';
-            }
+            wholesaleNotice.style.display = totals.qualifiesWholesale ? 'flex' : 'none';
         }
 
-        // Renderizar lista en el drawer
         const container = document.getElementById('cartItemsContainer');
         if (!container) return;
 
@@ -166,6 +250,10 @@
         let html = '';
         state.cart.forEach((it, idx) => {
             const isCombo = it.type === 'combo';
+            const prod = !isCombo ? state.products.find(p => String(p.id) === String(it.id)) : null;
+            const pMin = prod ? prod.price_minorista : (it.priceMinorista || it.price);
+            const pMay = prod ? (prod.price_mayorista || pMin) : (it.priceMayorista || pMin);
+            const unitPrice = (!isCombo && totals.qualifiesWholesale) ? pMay : pMin;
             const imgPath = it.image ? `${it.image.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
 
             html += `
@@ -175,10 +263,12 @@
                     </div>
                     <div class="cart-item-info">
                         <div class="cart-item-name" title="${it.name}">
-                            ${isCombo ? '<span style="color: var(--brand-gold);">[COMBO]</span> ' : ''}${it.name}
+                            ${isCombo ? '<span style="color: #d97706;">[COMBO]</span> ' : ''}${it.name}
                         </div>
                         <div class="cart-item-sub">${it.presentation || (isCombo ? 'Bebida + Acompañante' : '')}</div>
-                        <div class="cart-item-price">${formatCurrency(it.price * it.qty)} (${formatCurrency(it.price)} c/u)</div>
+                        <div class="cart-item-price">
+                            ${formatCurrency(unitPrice * it.qty)} <span style="color:#64748b; font-weight:600;">(${formatCurrency(unitPrice)} c/u${(!isCombo && totals.qualifiesWholesale) ? ' · Mayorista' : ''})</span>
+                        </div>
                     </div>
                     <div class="cart-item-stepper">
                         <button onclick="tiendaApp.updateQty(${idx}, -1)" aria-label="Restar una unidad">-</button>
@@ -217,6 +307,45 @@
         }
     }
 
+    // ----------------- MENÚ HAMBURGUESA DE CATEGORÍAS -----------------
+    function openCategoriesMenu() {
+        const drawer = document.getElementById('categoriesDrawer');
+        const backdrop = document.getElementById('categoriesBackdrop');
+        if (drawer && backdrop) {
+            drawer.classList.add('open');
+            backdrop.classList.add('open');
+            drawer.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeCategoriesMenu() {
+        const drawer = document.getElementById('categoriesDrawer');
+        const backdrop = document.getElementById('categoriesBackdrop');
+        if (drawer && backdrop) {
+            drawer.classList.remove('open');
+            backdrop.classList.remove('open');
+            drawer.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // ----------------- SWITCH MODO MINORISTA / MAYORISTA -----------------
+    function setPriceMode(mode) {
+        state.priceMode = mode === 'mayorista' ? 'mayorista' : 'minorista';
+        const btnMin = document.getElementById('btnModeMinorista');
+        const btnMay = document.getElementById('btnModeMayorista');
+        if (btnMin) btnMin.classList.toggle('active', state.priceMode === 'minorista');
+        if (btnMay) btnMay.classList.toggle('active', state.priceMode === 'mayorista');
+        renderFilteredProducts();
+        showToast(
+            state.priceMode === 'mayorista'
+                ? 'Mostrando Lista Mayorista (compras desde $100.000)'
+                : 'Mostrando Lista Minorista por unidad',
+            state.priceMode === 'mayorista' ? 'fa-boxes-stacked' : 'fa-bag-shopping'
+        );
+    }
+
     // ----------------- CARRUSEL HERO AUTOMÁTICO -----------------
     function initCarousel() {
         const slides = document.querySelectorAll('.carousel-slide');
@@ -227,7 +356,6 @@
 
         if (!slides.length || !dotsContainer) return;
 
-        // Crear dots
         dotsContainer.innerHTML = '';
         slides.forEach((_, idx) => {
             const dot = document.createElement('div');
@@ -237,30 +365,23 @@
         });
 
         function goToSlide(index) {
-            slides.forEach((s, idx) => {
-                s.classList.toggle('active', idx === index);
-            });
+            slides.forEach((s, idx) => s.classList.toggle('active', idx === index));
             const dots = dotsContainer.querySelectorAll('.carousel-dot');
-            dots.forEach((d, idx) => {
-                d.classList.toggle('active', idx === index);
-            });
+            dots.forEach((d, idx) => d.classList.toggle('active', idx === index));
             state.carouselIndex = index;
         }
 
         function nextSlide() {
-            const nextIdx = (state.carouselIndex + 1) % slides.length;
-            goToSlide(nextIdx);
+            goToSlide((state.carouselIndex + 1) % slides.length);
         }
 
         function prevSlide() {
-            const prevIdx = (state.carouselIndex - 1 + slides.length) % slides.length;
-            goToSlide(prevIdx);
+            goToSlide((state.carouselIndex - 1 + slides.length) % slides.length);
         }
 
         if (nextBtn) nextBtn.addEventListener('click', nextSlide);
         if (prevBtn) prevBtn.addEventListener('click', prevSlide);
 
-        // Auto avance cada 5.5 segundos
         function startTimer() {
             stopTimer();
             state.carouselTimer = setInterval(nextSlide, 5500);
@@ -271,8 +392,6 @@
         }
 
         startTimer();
-
-        // Pausa al pasar el mouse por encima
         if (track) {
             track.addEventListener('mouseenter', stopTimer);
             track.addEventListener('mouseleave', startTimer);
@@ -293,16 +412,17 @@
         state.combos.forEach(c => {
             const imgPath = c.image_path ? `${c.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
             const itemsList = (c.items || []).map(it => `<li><i class="fa-solid fa-check"></i> ${it.qty}x ${it.name}</li>`).join('');
+            const inCartQty = getCartQtyForItem(c.id, 'combo');
 
             html += `
-                <div class="combo-card">
-                    ${c.badge ? `<span class="combo-badge-pill">${c.badge}</span>` : ''}
+                <div class="combo-card ${inCartQty > 0 ? 'in-cart-active' : ''}">
+                    ${inCartQty > 0 ? `<span class="in-cart-pill"><i class="fa-solid fa-check"></i> En tu pedido (${inCartQty})</span>` : (c.badge ? `<span class="combo-badge-pill">${c.badge}</span>` : '')}
                     <div class="combo-image-box">
                         <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${c.name}">
                     </div>
                     <div class="combo-content">
                         <h3 class="combo-name">${c.name}</h3>
-                        ${c.description ? `<p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px;">${c.description}</p>` : ''}
+                        ${c.description ? `<p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">${c.description}</p>` : ''}
                         <ul class="combo-items-list">
                             ${itemsList}
                         </ul>
@@ -311,7 +431,7 @@
                             ${c.regular_price > c.price ? `<span class="combo-regular-price">Antes: ${formatCurrency(c.regular_price)}</span>` : ''}
                         </div>
                         <button class="btn-add-combo" onclick="tiendaApp.addComboById(${c.id})">
-                            <i class="fa-solid fa-cart-plus"></i> Agregar Combo
+                            <i class="fa-solid fa-cart-plus"></i> ${inCartQty > 0 ? 'Agregar otro Combo' : 'Agregar Combo'}
                         </button>
                     </div>
                 </div>
@@ -337,9 +457,7 @@
             const regularEl = slide.querySelector('.slide-regular-price');
             const savingsEl = slide.querySelector('.slide-savings');
 
-            if (priceEl && combo.price) {
-                priceEl.textContent = formatCurrency(combo.price);
-            }
+            if (priceEl && combo.price) priceEl.textContent = formatCurrency(combo.price);
             if (regularEl && combo.regular_price > combo.price) {
                 regularEl.textContent = `Antes: ${formatCurrency(combo.regular_price)}`;
                 regularEl.style.display = '';
@@ -352,48 +470,116 @@
         });
     }
 
-    // ----------------- RENDERIZADO DE CATEGORÍAS -----------------
+    // ----------------- RENDERIZADO DE CATEGORÍAS (DRAWER + PILLS) -----------------
+    function getCategoryIcon(catName, defaultIcon) {
+        if (defaultIcon && defaultIcon.trim()) return defaultIcon;
+        const n = (catName || '').toUpperCase();
+        if (n.includes('CERVEZA')) return 'fa-solid fa-beer-mug-empty';
+        if (n.includes('VINO') || n.includes('ESPUMANTE') || n.includes('SIDRA')) return 'fa-solid fa-wine-bottle';
+        if (n.includes('WHISK')) return 'fa-solid fa-whiskey-glass';
+        if (n.includes('VODKA') || n.includes('GIN') || n.includes('RON') || n.includes('LICOR')) return 'fa-solid fa-martini-glass-citrus';
+        if (n.includes('FERNET') || n.includes('APERITIVO')) return 'fa-solid fa-wine-glass';
+        if (n.includes('GASEOSA') || n.includes('AGUA') || n.includes('JUGO') || n.includes('SIN ALCOHOL')) return 'fa-solid fa-bottle-water';
+        if (n.includes('ENERGIZANTE')) return 'fa-solid fa-bolt';
+        if (n.includes('SNACK') || n.includes('PAPA')) return 'fa-solid fa-bowl-food';
+        return 'fa-solid fa-wine-glass';
+    }
+
     function renderCategories() {
-        const container = document.getElementById('categoryPills');
-        if (!container) return;
+        const pillsContainer = document.getElementById('categoryPills');
+        const drawerGrid = document.getElementById('categoriesDrawerGrid');
+        const activeLabel = document.getElementById('activeCategoryLabel');
 
-        let html = `
-            <button class="pill-btn ${state.activeCategory === 'all' ? 'active' : ''}" data-category="all">
-                <i class="fa-solid fa-layer-group"></i> Todos los Productos
-            </button>
-            <button class="pill-btn ${state.activeCategory === 'combos' ? 'active' : ''}" data-category="combos">
-                <i class="fa-solid fa-fire"></i> Combos Especiales
-            </button>
-        `;
+        const totalProds = state.products.filter(p => !p.category_name || p.category_name.toUpperCase() !== 'COMBOS').length;
 
-        state.categories.forEach(cat => {
-            if (cat.name && cat.name.toUpperCase() === 'COMBOS') return;
-            const isActive = state.activeCategory === String(cat.id);
-            html += `
-                <button class="pill-btn ${isActive ? 'active' : ''}" data-category="${cat.id}">
-                    ${cat.icon ? `<i class="${cat.icon}"></i>` : '<i class="fa-solid fa-wine-glass"></i>'}
-                    ${cat.name} (${cat.product_count})
+        // Actualizar texto del botón Hamburguesa
+        if (activeLabel) {
+            if (state.activeCategory === 'all') {
+                activeLabel.textContent = `Todos los Productos (${totalProds})`;
+            } else if (state.activeCategory === 'combos' || state.activeCategory === 'Combos') {
+                activeLabel.textContent = `🔥 Combos Especiales (${state.combos.length})`;
+            } else {
+                const foundCat = state.categories.find(c => String(c.id) === String(state.activeCategory));
+                activeLabel.textContent = foundCat ? `${foundCat.name} (${foundCat.product_count})` : 'Todos los Productos';
+            }
+        }
+
+        // 1. Renderizar pastillas PC
+        if (pillsContainer) {
+            let pillsHtml = `
+                <button class="pill-btn ${state.activeCategory === 'all' ? 'active' : ''}" data-category="all">
+                    <i class="fa-solid fa-layer-group"></i> Todos (${totalProds})
+                </button>
+                <button class="pill-btn ${state.activeCategory === 'combos' ? 'active' : ''}" data-category="combos">
+                    <i class="fa-solid fa-fire"></i> Combos (${state.combos.length})
                 </button>
             `;
-        });
 
-        container.innerHTML = html;
-
-        // Event listeners en pastillas
-        container.querySelectorAll('.pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                container.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const cat = btn.getAttribute('data-category');
-                filterByCategory(cat);
+            state.categories.forEach(cat => {
+                if (cat.name && cat.name.toUpperCase() === 'COMBOS') return;
+                const isActive = String(state.activeCategory) === String(cat.id);
+                const iconClass = getCategoryIcon(cat.name, cat.icon);
+                pillsHtml += `
+                    <button class="pill-btn ${isActive ? 'active' : ''}" data-category="${cat.id}">
+                        <i class="${iconClass}"></i> ${cat.name} (${cat.product_count})
+                    </button>
+                `;
             });
-        });
+            pillsContainer.innerHTML = pillsHtml;
+            pillsContainer.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => filterByCategory(btn.getAttribute('data-category')));
+            });
+        }
+
+        // 2. Renderizar Grilla 2 Columnas en el Menú Hamburguesa
+        if (drawerGrid) {
+            let drawerHtml = `
+                <button class="cat-drawer-card full-span ${state.activeCategory === 'all' ? 'active' : ''}" data-category="all">
+                    <div class="cat-drawer-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="cat-drawer-info">
+                        <span class="cat-drawer-name">Todos los Productos</span>
+                        <span class="cat-drawer-count">${totalProds} bebidas disponibles</span>
+                    </div>
+                </button>
+                <button class="cat-drawer-card full-span ${state.activeCategory === 'combos' ? 'active' : ''}" data-category="combos">
+                    <div class="cat-drawer-icon"><i class="fa-solid fa-fire"></i></div>
+                    <div class="cat-drawer-info">
+                        <span class="cat-drawer-name">🔥 Combos con Acompañante</span>
+                        <span class="cat-drawer-count">${state.combos.length} promos listas</span>
+                    </div>
+                </button>
+            `;
+
+            state.categories.forEach(cat => {
+                if (cat.name && cat.name.toUpperCase() === 'COMBOS') return;
+                const isActive = String(state.activeCategory) === String(cat.id);
+                const iconClass = getCategoryIcon(cat.name, cat.icon);
+                drawerHtml += `
+                    <button class="cat-drawer-card ${isActive ? 'active' : ''}" data-category="${cat.id}">
+                        <div class="cat-drawer-icon"><i class="${iconClass}"></i></div>
+                        <div class="cat-drawer-info">
+                            <span class="cat-drawer-name">${cat.name}</span>
+                            <span class="cat-drawer-count">${cat.product_count} productos</span>
+                        </div>
+                    </button>
+                `;
+            });
+
+            drawerGrid.innerHTML = drawerHtml;
+            drawerGrid.querySelectorAll('.cat-drawer-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const cat = card.getAttribute('data-category');
+                    closeCategoriesMenu();
+                    filterByCategory(cat);
+                });
+            });
+        }
     }
 
     function filterByCategory(category) {
         state.activeCategory = category;
+        renderCategories();
 
-        // Si elige combos, limpiar búsqueda si había alguna para restaurar la sección
         if (category === 'combos' || category === 'Combos') {
             state.searchQuery = '';
             const searchInput = document.getElementById('searchInput');
@@ -402,21 +588,16 @@
             if (clearBtn) clearBtn.style.display = 'none';
 
             renderFilteredProducts();
-
             const combosEl = document.getElementById('combosSection');
-            if (combosEl) {
-                combosEl.scrollIntoView({ behavior: 'smooth' });
-            }
+            if (combosEl) combosEl.scrollIntoView({ behavior: 'smooth' });
             return;
-        } else {
-            // Scroll a productos
-            const catBar = document.getElementById('catalogSection');
-            if (catBar) {
-                catBar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
         }
 
         renderFilteredProducts();
+        const catBar = document.getElementById('catalogSection');
+        if (catBar) {
+            catBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
     // ----------------- RENDERIZADO DE PRODUCTOS -----------------
@@ -425,6 +606,7 @@
         const emptyState = document.getElementById('noResultsState');
         const resultsCountEl = document.getElementById('resultsCountText');
         const filterBadge = document.getElementById('activeFilterBadge');
+        const resetQuickBtn = document.getElementById('resetCategoryQuickBtn');
         const combosSection = document.getElementById('combosSection');
         const heroCarouselSection = document.getElementById('heroCarouselSection');
         const trustBannerSection = document.querySelector('.trust-banner-section');
@@ -432,25 +614,15 @@
         if (!grid) return;
 
         const hasSearch = !!(state.searchQuery && state.searchQuery.trim().length > 0);
+        const hasCatFilter = state.activeCategory !== 'all' && state.activeCategory !== 'combos';
 
-        // Cuando el usuario busca un producto, la sección de combos deja de aparecer
-        if (combosSection) {
-            combosSection.style.display = hasSearch ? 'none' : '';
-        }
+        if (combosSection) combosSection.style.display = (hasSearch || hasCatFilter) ? 'none' : '';
+        if (heroCarouselSection) heroCarouselSection.style.display = (hasSearch || hasCatFilter) ? 'none' : '';
+        if (trustBannerSection) trustBannerSection.style.display = (hasSearch || hasCatFilter) ? 'none' : '';
 
-        // Ocultar también carrusel y garantías para que los resultados aparezcan directamente debajo del buscador
-        if (heroCarouselSection) {
-            heroCarouselSection.style.display = hasSearch ? 'none' : '';
-        }
-        if (trustBannerSection) {
-            trustBannerSection.style.display = hasSearch ? 'none' : '';
-        }
-
-        // Reservar este catálogo inferior exclusivamente para productos individuales (los combos están en su sección dedicada)
         let filtered = state.products.filter(p => !p.category_name || p.category_name.toUpperCase() !== 'COMBOS');
 
-        // Filtro de categoría
-        if (state.activeCategory !== 'all' && state.activeCategory !== 'combos') {
+        if (hasCatFilter) {
             filtered = filtered.filter(p => String(p.category_id) === String(state.activeCategory));
             const catObj = state.categories.find(c => String(c.id) === String(state.activeCategory));
             if (catObj && filterBadge && !hasSearch) {
@@ -461,10 +633,9 @@
             if (filterBadge) filterBadge.style.display = 'none';
         }
 
-        // Filtro de búsqueda
         if (hasSearch) {
             const q = state.searchQuery.toLowerCase().trim();
-            filtered = filtered.filter(p => 
+            filtered = filtered.filter(p =>
                 p.name.toLowerCase().includes(q) ||
                 (p.presentation && p.presentation.toLowerCase().includes(q)) ||
                 (p.category_name && p.category_name.toLowerCase().includes(q))
@@ -475,6 +646,10 @@
             }
         }
 
+        if (resetQuickBtn) {
+            resetQuickBtn.style.display = (hasSearch || hasCatFilter) ? 'inline-flex' : 'none';
+        }
+
         // Ordenamiento
         if (state.sortBy === 'price-asc') {
             filtered.sort((a, b) => a.price_minorista - b.price_minorista);
@@ -483,57 +658,64 @@
         } else if (state.sortBy === 'name-asc') {
             filtered.sort((a, b) => a.name.localeCompare(b.name));
         } else {
-            // Destacados primero
             filtered.sort((a, b) => (b.is_featured || 0) - (a.is_featured || 0));
         }
 
-        // Actualizar contador de resultados
         if (resultsCountEl) {
-            if (hasSearch) {
-                resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'} para "${state.searchQuery.trim()}"`;
-            } else {
-                resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} disponible${filtered.length === 1 ? '' : 's'}`;
-            }
+            resultsCountEl.textContent = `${filtered.length} producto${filtered.length === 1 ? '' : 's'} disponible${filtered.length === 1 ? '' : 's'}`;
         }
 
         if (filtered.length === 0) {
             grid.innerHTML = '';
-            if (emptyState) {
-                emptyState.style.display = 'block';
-                const emptyTitle = emptyState.querySelector('h3');
-                const emptyDesc = emptyState.querySelector('p');
-                if (hasSearch && emptyTitle && emptyDesc) {
-                    emptyTitle.textContent = `No se encontraron productos para "${state.searchQuery.trim()}"`;
-                    emptyDesc.textContent = 'Verificá la ortografía o intentá con otra palabra clave como cerveza, fernet o vodka.';
-                } else if (emptyTitle && emptyDesc) {
-                    emptyTitle.textContent = 'No se encontraron productos';
-                    emptyDesc.textContent = 'Intentá buscar con otra palabra clave o seleccioná otra categoría.';
-                }
-            }
+            if (emptyState) emptyState.style.display = 'block';
             return;
         }
 
         if (emptyState) emptyState.style.display = 'none';
 
+        const isMayoristaMode = state.priceMode === 'mayorista';
         let html = '';
+
         filtered.forEach(p => {
             const imgPath = p.image_path ? `${p.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
-            
-            // Lógica de badges seguros (sin filtrar stock exacto a menos que sea crítico)
+            const inCartQty = getCartQtyForItem(p.id, 'product');
+
             let stockBadge = '';
             if (p.is_out_of_stock) {
                 stockBadge = '<span class="out-of-stock-badge">Agotado</span>';
             } else if (p.is_low_stock && p.low_stock_count) {
-                const text = p.low_stock_count === 1 ? '¡Última unidad!' : `¡Últimas ${p.low_stock_count} unidades!`;
+                const text = p.low_stock_count === 1 ? '¡Última!' : `¡Últimas ${p.low_stock_count}!`;
                 stockBadge = `<span class="low-stock-badge"><i class="fa-solid fa-fire"></i> ${text}</span>`;
             }
 
-            const featuredBadge = p.is_featured ? '<span class="featured-badge">⭐ Destacado</span>' : '';
+            const topLeftBadge = inCartQty > 0
+                ? `<span class="in-cart-pill"><i class="fa-solid fa-check"></i> En tu pedido (${inCartQty})</span>`
+                : (p.is_featured ? '<span class="featured-badge">⭐ Destacado</span>' : '');
+
+            const pricingHtml = isMayoristaMode
+                ? `
+                    <div class="product-price-mayorista" style="padding: 6px 10px;">
+                        <span>MAYORISTA:</span>
+                        <strong style="font-size: 22px;">${formatCurrency(p.price_mayorista || p.price_minorista)}</strong>
+                    </div>
+                    <div style="font-size: 11.5px; color: #64748b; font-weight: 600;">
+                        Minorista x unidad: ${formatCurrency(p.price_minorista)}
+                    </div>
+                  `
+                : `
+                    <div class="product-price-minorista">
+                        ${formatCurrency(p.price_minorista)} <small>x unidad</small>
+                    </div>
+                    <div class="product-price-mayorista">
+                        <span>Mayorista (&gt;$100k)</span>
+                        <strong>${formatCurrency(p.price_mayorista || p.price_minorista)}</strong>
+                    </div>
+                  `;
 
             html += `
-                <div class="product-card" data-product-id="${p.id}">
+                <div class="product-card ${inCartQty > 0 ? 'in-cart-active' : ''}" data-product-id="${p.id}">
                     ${stockBadge}
-                    ${featuredBadge}
+                    ${topLeftBadge}
                     <div class="product-image-container">
                         <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${p.name}" loading="lazy">
                     </div>
@@ -543,8 +725,7 @@
                         <div class="product-presentation">${p.presentation || 'Unidad'}</div>
                         
                         <div class="product-pricing-box">
-                            <div class="product-price-minorista">${formatCurrency(p.price_minorista)}</div>
-                            <div class="product-price-mayorista">Mayor: ${formatCurrency(p.price_mayorista)} <span style="font-size: 10px; color: #94a3b8;">(> $100k)</span></div>
+                            ${pricingHtml}
                         </div>
 
                         <div class="product-actions">
@@ -557,7 +738,7 @@
                                 class="btn-add-cart" 
                                 onclick="tiendaApp.addProductById(${p.id})"
                                 ${p.is_out_of_stock ? 'disabled' : ''}>
-                                <i class="fa-solid fa-cart-plus"></i> ${p.is_out_of_stock ? 'Agotado' : 'Pedir'}
+                                <i class="fa-solid fa-cart-plus"></i> ${p.is_out_of_stock ? 'Agotado' : (inCartQty > 0 ? 'Sumar' : 'Pedir')}
                             </button>
                         </div>
                     </div>
@@ -587,13 +768,11 @@
             document.getElementById('customerName')?.focus();
             return null;
         }
-
         if (!phone) {
             alert('Por favor ingresa tu número de Teléfono o WhatsApp.');
             document.getElementById('customerPhone')?.focus();
             return null;
         }
-
         if (deliveryType === 'delivery' && !address) {
             alert('Por favor ingresa tu Dirección de Entrega (calle, número y entrecalles).');
             document.getElementById('customerAddress')?.focus();
@@ -611,39 +790,57 @@
     }
 
     function buildOrderSummaryText(customer) {
-        const subtotal = state.cart.reduce((sum, it) => sum + (it.price * it.qty), 0);
-        const isWholesaleQualified = subtotal >= state.config.wholesale_threshold;
+        const totals = getCartTotals();
 
         let itemsText = '';
-        state.cart.forEach((it, idx) => {
-            const prefix = it.type === 'combo' ? '🔥 [COMBO] ' : '• ';
+        state.cart.forEach(it => {
+            const isCombo = it.type === 'combo';
+            const prod = !isCombo ? state.products.find(p => String(p.id) === String(it.id)) : null;
+            const pMin = prod ? prod.price_minorista : (it.priceMinorista || it.price);
+            const pMay = prod ? (prod.price_mayorista || pMin) : (it.priceMayorista || pMin);
+            const unitPrice = (!isCombo && totals.qualifiesWholesale) ? pMay : pMin;
+
+            const prefix = isCombo ? '🔥 [COMBO] ' : '• ';
             const pres = it.presentation ? ` (${it.presentation})` : '';
-            itemsText += `${prefix}${it.qty}x ${it.name}${pres} — ${formatCurrency(it.price * it.qty)}\n`;
+            itemsText += `${prefix}${it.qty}x ${it.name}${pres} — ${formatCurrency(unitPrice * it.qty)}
+`;
         });
 
-        let msg = `🛒 *NUEVO PEDIDO - BEBIDAS 25 DE MAYO*\n`;
-        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `👤 *Cliente:* ${customer.name}\n`;
-        msg += `📞 *Teléfono:* ${customer.phone}\n`;
-        msg += `🛵 *Modalidad:* ${customer.deliveryType}\n`;
+        let msg = `🛒 *NUEVO PEDIDO - BEBIDAS 25 DE MAYO*
+`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+        msg += `👤 *Cliente:* ${customer.name}
+`;
+        msg += `📞 *Teléfono:* ${customer.phone}
+`;
+        msg += `🛵 *Modalidad:* ${customer.deliveryType}
+`;
         if (customer.address && customer.deliveryType.includes('Envío')) {
-            msg += `📍 *Dirección:* ${customer.address}\n`;
+            msg += `📍 *Dirección:* ${customer.address}
+`;
         }
-        msg += `💳 *Medio de Pago:* ${customer.payment}\n`;
+        msg += `💳 *Medio de Pago:* ${customer.payment}
+`;
         if (customer.notes) {
-            msg += `📝 *Aclaraciones:* ${customer.notes}\n`;
+            msg += `📝 *Aclaraciones:* ${customer.notes}
+`;
         }
-        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `📦 *DETALLE DEL PEDIDO:*\n${itemsText}`;
-        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `💰 *TOTAL ESTIMADO: ${formatCurrency(subtotal)}*\n`;
-        
-        if (isWholesaleQualified) {
-            msg += `⭐ *¡Califica para precio mayorista por superar los $100.000!* (Coordinar descuento final).\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+        msg += `📦 *DETALLE DEL PEDIDO (${totals.qualifiesWholesale ? 'LISTA MAYORISTA' : 'LISTA MINORISTA'}):*
+${itemsText}`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+        if (totals.qualifiesWholesale && totals.savings > 0) {
+            msg += `🎉 *Ahorro Mayorista aplicado: -${formatCurrency(totals.savings)}*
+`;
         }
-        
-        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `¡Hola Bebidas 25 de Mayo! Envío mi pedido realizado desde la página web. Aguardo su confirmación. ¡Muchas gracias!`;
+        msg += `💰 *TOTAL FINAL: ${formatCurrency(totals.effectiveTotal)}*
+`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+        msg += `¡Hola Bebidas 25 de Mayo! Envío mi pedido desde la tienda web. ¡Muchas gracias!`;
 
         return msg;
     }
@@ -651,32 +848,23 @@
     function sendWhatsappOrder() {
         const customer = validateCheckout();
         if (!customer) return;
-
         const summaryText = buildOrderSummaryText(customer);
-        const encoded = encodeURIComponent(summaryText);
         const phone = state.config.whatsapp_phone || '5491176265350';
-        const url = `https://wa.me/${phone}?text=${encoded}`;
-
-        window.open(url, '_blank');
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(summaryText)}`, '_blank');
     }
 
     function sendEmailOrder() {
         const customer = validateCheckout();
         if (!customer) return;
-
-        const subtotal = state.cart.reduce((sum, it) => sum + (it.price * it.qty), 0);
+        const totals = getCartTotals();
         const summaryText = buildOrderSummaryText(customer);
         const email = state.config.email || 'bebidas.25demayo@hotmail.com';
-        const subject = encodeURIComponent(`Nuevo Pedido Web - ${customer.name} (${formatCurrency(subtotal)})`);
-        const body = encodeURIComponent(summaryText);
-        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
-
-        window.location.href = mailtoUrl;
+        const subject = encodeURIComponent(`Nuevo Pedido Web - ${customer.name} (${formatCurrency(totals.effectiveTotal)})`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(summaryText)}`;
     }
 
-    // ----------------- EVENT LISTENERS Y CONFIGURACIÓN -----------------
+    // ----------------- EVENT LISTENERS Y SCROLL FAB -----------------
     function setupEventListeners() {
-        // Carrito drawer
         const openCartBtn = document.getElementById('openCartBtn');
         const floatingCartBtn = document.getElementById('floatingCartBtn');
         const closeCartBtn = document.getElementById('closeCartBtn');
@@ -687,19 +875,15 @@
         if (closeCartBtn) closeCartBtn.addEventListener('click', closeCart);
         if (cartBackdrop) cartBackdrop.addEventListener('click', closeCart);
 
-        // Búsqueda
         const searchInput = document.getElementById('searchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
 
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 state.searchQuery = e.target.value;
-                if (clearSearchBtn) {
-                    clearSearchBtn.style.display = state.searchQuery ? 'block' : 'none';
-                }
+                if (clearSearchBtn) clearSearchBtn.style.display = state.searchQuery ? 'block' : 'none';
                 renderFilteredProducts();
             });
-
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -720,7 +904,6 @@
             });
         }
 
-        // Ordenamiento
         const sortSelect = document.getElementById('sortSelect');
         if (sortSelect) {
             sortSelect.addEventListener('change', (e) => {
@@ -729,23 +912,29 @@
             });
         }
 
-        // Tipo de entrega (Envío vs Retiro)
         const deliveryRadios = document.querySelectorAll('input[name="deliveryType"]');
         const addressGroup = document.getElementById('addressFieldGroup');
         deliveryRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
-                if (addressGroup) {
-                    addressGroup.style.display = e.target.value === 'delivery' ? 'block' : 'none';
-                }
+                if (addressGroup) addressGroup.style.display = e.target.value === 'delivery' ? 'block' : 'none';
             });
         });
 
-        // Botones de Checkout
         const btnWhatsapp = document.getElementById('sendWhatsappOrderBtn');
         const btnEmail = document.getElementById('sendEmailOrderBtn');
-
         if (btnWhatsapp) btnWhatsapp.addEventListener('click', sendWhatsappOrder);
         if (btnEmail) btnEmail.addEventListener('click', sendEmailOrder);
+
+        // Mostrar/ocultar botones rápidos flotantes al bajar por el catálogo
+        const quickFabGroup = document.getElementById('quickFabGroup');
+        window.addEventListener('scroll', () => {
+            if (!quickFabGroup) return;
+            if (window.scrollY > 360) {
+                quickFabGroup.classList.add('visible');
+            } else {
+                quickFabGroup.classList.remove('visible');
+            }
+        }, { passive: true });
     }
 
     // ----------------- CARGA DE DATOS INICIAL -----------------
@@ -778,16 +967,15 @@
                 renderCombos();
                 updateCarouselPricing();
             }
+            if (prodsData) {
+                state.products = prodsData;
+            }
             if (catsData) {
                 state.categories = catsData;
                 renderCategories();
             }
-            if (prodsData) {
-                state.products = prodsData;
-                renderFilteredProducts();
-            }
-
-            // 5. Iniciar Carrusel
+            renderFilteredProducts();
+            updateCartUI();
             initCarousel();
 
         } catch (err) {
@@ -796,9 +984,7 @@
         }
     }
 
-    // ==========================================
-    // SISTEMA DE ZOOM LIGHTBOX PARA MÁXIMA LEGIBILIDAD
-    // ==========================================
+    // ----------------- ZOOM LIGHTBOX -----------------
     function openImageZoomModal(item) {
         const modal = document.getElementById('imageZoomModal');
         const img = document.getElementById('zoomModalImg');
@@ -830,7 +1016,7 @@
             if (item.priceMayorista !== undefined && item.priceMayorista !== null && item.priceMayorista > 0) {
                 pricesHtml += `
                     <div class="image-zoom-price-box mayorista">
-                        <span class="image-zoom-price-label">Precio Mayorista</span>
+                        <span class="image-zoom-price-label">Mayorista (&gt;$100k)</span>
                         <span class="image-zoom-price-val">${formatCurrency(item.priceMayorista)}</span>
                     </div>
                 `;
@@ -853,13 +1039,14 @@
                 } else if (item.productId) {
                     const prod = state.products.find(p => String(p.id) === String(item.productId));
                     if (prod) {
-                        const price = state.priceMode === 'mayorista' ? (prod.price_mayorista || prod.price_minorista) : prod.price_minorista;
                         addToCart({
                             id: prod.id,
                             type: 'product',
                             name: prod.name,
                             presentation: prod.presentation,
-                            price: price,
+                            price: prod.price_minorista,
+                            priceMinorista: prod.price_minorista,
+                            priceMayorista: prod.price_mayorista || prod.price_minorista,
                             qty: 1,
                             image: prod.image_path
                         });
@@ -884,9 +1071,7 @@
     window.closeImageZoomModal = closeImageZoomModal;
     window.openImageZoomModal = openImageZoomModal;
 
-    // Delegación de clicks en imágenes de productos y combos
     document.addEventListener('click', (e) => {
-        // 1. Click en imagen de producto
         const prodImgBox = e.target.closest('.product-image-container');
         if (prodImgBox) {
             const card = prodImgBox.closest('.product-card');
@@ -909,12 +1094,11 @@
             return;
         }
 
-        // 2. Click en imagen de combo
         const comboImgBox = e.target.closest('.combo-image-box');
         if (comboImgBox) {
             const card = comboImgBox.closest('.combo-card');
             const img = comboImgBox.querySelector('img');
-            const titleEl = card ? card.querySelector('.combo-title') : null;
+            const titleEl = card ? card.querySelector('.combo-name') : null;
             if (img && titleEl) {
                 const comboName = titleEl.innerText.trim();
                 const comboObj = state.combos.find(c => c.name.trim().toLowerCase() === comboName.toLowerCase());
@@ -936,11 +1120,27 @@
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeImageZoomModal();
+            closeCategoriesMenu();
+            closeCart();
         }
     });
 
-    // Exponer métodos para interacción directa en HTML (onclick)
     window.tiendaApp = {
+        openCart: openCart,
+        closeCart: closeCart,
+        openCategoriesMenu: openCategoriesMenu,
+        closeCategoriesMenu: closeCategoriesMenu,
+        setPriceMode: setPriceMode,
+        scrollToTop: function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        focusSearchTop: function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.focus();
+            }, 350);
+        },
         addProductById: function (id) {
             const prod = state.products.find(p => p.id === id);
             if (!prod) return;
@@ -952,9 +1152,12 @@
                 name: prod.name,
                 presentation: prod.presentation,
                 price: prod.price_minorista,
+                priceMinorista: prod.price_minorista,
+                priceMayorista: prod.price_mayorista || prod.price_minorista,
                 qty: qty,
                 image: prod.image_path
             });
+            if (qtyInput) qtyInput.value = 1;
         },
         addComboById: function (id) {
             const combo = state.combos.find(c => c.id === id);
@@ -1004,7 +1207,6 @@
         }
     };
 
-    // Inicializar cuando el DOM esté listo
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initApp);
     } else {

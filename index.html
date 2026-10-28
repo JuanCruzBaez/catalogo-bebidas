@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bebidas 25 de Mayo | Tienda Online y Pedidos</title>
+    <title>Bebidas 25 de Mayo | Tienda Online Mayorista y Minorista</title>
     <meta name="description" content="Catálogo online de Bebidas 25 de Mayo. Venta minorista y mayorista en Lanús Oeste. Pedí combos de bebidas, cervezas, vinos y destilados por WhatsApp o Email.">
     <link rel="canonical" href="https://bebidas25demayo.pages.dev/">
     
@@ -45,14 +45,21 @@
     <!-- HEADER PRINCIPAL -->
     <header class="main-header" id="mainHeader">
         <div class="container header-container">
-            <!-- Logo y Marca -->
-            <a href="/" class="brand-logo" aria-label="Bebidas 25 de Mayo">
-                <img src="static/images/logo.png" onerror="this.src='uploads/logo.jpg'" alt="Logo Bebidas 25 de Mayo" class="logo-img">
-                <div class="brand-text">
-                    <span class="brand-title">BEBIDAS <strong>25 DE MAYO</strong></span>
-                    <span class="brand-subtitle">DISTRIBUIDORA MAYORISTA & MINORISTA</span>
-                </div>
-            </a>
+            <!-- Botón Hamburguesa Categorías + Logo -->
+            <div class="header-left-group">
+                <button id="headerHamburgerBtn" class="btn-hamburger-header" onclick="tiendaApp.openCategoriesMenu()" aria-label="Abrir menú de categorías" title="Ver todas las categorías">
+                    <i class="fa-solid fa-bars"></i>
+                    <span class="hamburger-label">Categorías</span>
+                </button>
+
+                <a href="./" class="brand-logo" aria-label="Bebidas 25 de Mayo">
+                    <img src="static/images/logo.png" onerror="this.src='uploads/logo.jpg'" alt="Logo Bebidas 25 de Mayo" class="logo-img">
+                    <div class="brand-text">
+                        <span class="brand-title">BEBIDAS <strong>25 DE MAYO</strong></span>
+                        <span class="brand-subtitle">DISTRIBUIDORA MAYORISTA & MINORISTA</span>
+                    </div>
+                </a>
+            </div>
 
             <!-- Buscador Central -->
             <div class="search-box">
@@ -84,6 +91,33 @@
         </div>
     </header>
 
+    <!-- DRAWER / MENÚ HAMBURGUESA DE CATEGORÍAS -->
+    <div class="categories-backdrop" id="categoriesBackdrop" onclick="tiendaApp.closeCategoriesMenu()"></div>
+    <aside class="categories-drawer" id="categoriesDrawer" aria-hidden="true">
+        <div class="categories-drawer-header">
+            <div class="categories-drawer-title">
+                <i class="fa-solid fa-layer-group"></i>
+                <div>
+                    <h3>CATEGORÍAS DE BEBIDAS</h3>
+                    <p>Tocá un rubro para filtrar el catálogo</p>
+                </div>
+            </div>
+            <button class="btn-close-categories" onclick="tiendaApp.closeCategoriesMenu()" aria-label="Cerrar menú">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="categories-drawer-body">
+            <div class="categories-drawer-grid" id="categoriesDrawerGrid">
+                <!-- Se inyectan las tarjetas de categorías en grilla de 2 columnas -->
+            </div>
+        </div>
+        <div class="categories-drawer-footer">
+            <a href="https://wa.me/5491176265350" target="_blank" rel="noopener" class="drawer-whatsapp-link">
+                <i class="fa-brands fa-whatsapp"></i> ¿Buscás por mayor para tu negocio? Escribinos
+            </a>
+        </div>
+    </aside>
+
     <!-- HERO CARRUSEL DE PRODUCTOS Y COMBOS -->
     <section class="hero-carousel-section" id="heroCarouselSection">
         <div class="container">
@@ -106,7 +140,7 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(1)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
                                         Ver todos los combos
                                     </button>
                                 </div>
@@ -133,7 +167,7 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(2)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
                                         Ver todos los combos
                                     </button>
                                 </div>
@@ -160,7 +194,7 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(8)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
                                         Ver todos los combos
                                     </button>
                                 </div>
@@ -187,7 +221,7 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(9)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
                                         Ver todos los combos
                                     </button>
                                 </div>
@@ -214,8 +248,8 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(3)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Whisky')">
-                                        Ver whiskies
+                                    <button class="btn btn-secondary" onclick="tiendaApp.openCategoriesMenu()">
+                                        Ver categorías
                                     </button>
                                 </div>
                             </div>
@@ -237,8 +271,8 @@
                                     <span class="slide-regular-price">Precios especiales por pack</span>
                                 </div>
                                 <div class="slide-actions">
-                                    <button class="btn btn-primary" onclick="tiendaApp.filterByCategory('Cerveza')">
-                                        <i class="fa-solid fa-beer-mug-empty"></i> Ver Cervezas
+                                    <button class="btn btn-primary" onclick="tiendaApp.openCategoriesMenu()">
+                                        <i class="fa-solid fa-beer-mug-empty"></i> Explorar Catálogo
                                     </button>
                                 </div>
                             </div>
@@ -252,7 +286,7 @@
                     <div class="carousel-slide">
                         <div class="slide-content">
                             <div class="slide-text">
-                                <span class="slide-badge highlight-red" style="background: rgba(220, 38, 38, 0.2); color: #ef4444; border: 1px solid rgba(220, 38, 38, 0.4);">🥤 SUPER PACK MAYORISTA</span>
+                                <span class="slide-badge highlight-red">🥤 SUPER PACK MAYORISTA</span>
                                 <h2 class="slide-title">PACK COCA-COLA 2.25L<br>X 8 UNIDADES</h2>
                                 <p class="slide-desc">Pack cerrado de 8 botellas de Coca-Cola Sabor Original 2.25L al mejor precio mayorista. ¡Ideal para tu negocio, kiosco o evento!</p>
                                 <div class="slide-pricing">
@@ -264,7 +298,7 @@
                                     <button class="btn btn-primary" onclick="tiendaApp.addComboById(10)">
                                         <i class="fa-solid fa-cart-plus"></i> Agregar Pack al Carrito
                                     </button>
-                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('Combos')">
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
                                         Ver todos los combos
                                     </button>
                                 </div>
@@ -304,7 +338,7 @@
                 <div class="trust-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
                 <div class="trust-text">
                     <h4>VENTA POR MAYOR</h4>
-                    <p>Precios mayoristas a partir de compras de $100.000.</p>
+                    <p>Precios mayoristas automáticos desde $100.000.</p>
                 </div>
             </div>
             <div class="trust-card">
@@ -318,7 +352,7 @@
                 <div class="trust-icon"><i class="fa-brands fa-whatsapp"></i></div>
                 <div class="trust-text">
                     <h4>PEDIDOS DIRECTOS</h4>
-                    <p>Armá tu pedido y te respondemos de inmediato por WhatsApp.</p>
+                    <p>Armá tu pedido y te respondemos al instante por WhatsApp.</p>
                 </div>
             </div>
         </div>
@@ -331,7 +365,7 @@
                 <div class="section-title-wrap">
                     <span class="section-badge">🔥 ARMÁ TU FIESTA</span>
                     <h2 class="section-title">COMBOS DE BEBIDAS CON ACOMPAÑANTE</h2>
-                    <p class="section-subtitle">Elegí tu bebida con sus gaseosas o energizantes acompañantes incluidos y ahorrá dinero en tu compra.</p>
+                    <p class="section-subtitle">Elegí tu bebida con sus gaseosas o energizantes incluidos y ahorrá en tu compra.</p>
                 </div>
                 <div class="mobile-shelf-hint">
                     <i class="fa-solid fa-arrows-left-right"></i> Deslizá para ver combos
@@ -340,7 +374,6 @@
 
             <!-- Grilla de Combos -->
             <div class="combos-grid" id="combosGrid">
-                <!-- Se rellena dinámicamente con JS desde /api/public/combos -->
                 <div class="loading-state">
                     <i class="fa-solid fa-spinner fa-spin"></i> Cargando combos especiales...
                 </div>
@@ -348,15 +381,39 @@
         </div>
     </section>
 
-    <!-- NAVEGACIÓN Y FILTROS POR CATEGORÍA -->
+    <!-- BARRA DE CONTROL Y NAVEGACIÓN DE CATEGORÍAS (MENÚ HAMBURGUESA + SWITCH DE LISTA) -->
     <section class="categories-bar-section" id="catalogSection">
         <div class="container">
-            <div class="categories-scroll-wrapper">
+            <div class="catalog-nav-toolbar">
+                <!-- Botón Principal Menú Hamburguesa de Categorías -->
+                <button class="btn-categories-trigger" id="openCategoriesMenuBtn" onclick="tiendaApp.openCategoriesMenu()">
+                    <div class="trigger-left">
+                        <span class="trigger-hamburger-icon"><i class="fa-solid fa-bars"></i></span>
+                        <div class="trigger-text-wrap">
+                            <span class="trigger-small-label">Categoría actual</span>
+                            <span class="trigger-active-name" id="activeCategoryLabel">Todos los Productos</span>
+                        </div>
+                    </div>
+                    <span class="trigger-Action-pill">Cambiar <i class="fa-solid fa-chevron-down"></i></span>
+                </button>
+
+                <!-- Switch Rápido Lista Minorista / Mayorista -->
+                <div class="price-mode-switcher" role="group" aria-label="Seleccionar lista de precios">
+                    <button type="button" class="price-mode-btn active" id="btnModeMinorista" onclick="tiendaApp.setPriceMode('minorista')">
+                        <i class="fa-solid fa-bag-shopping"></i> Minorista
+                    </button>
+                    <button type="button" class="price-mode-btn" id="btnModeMayorista" onclick="tiendaApp.setPriceMode('mayorista')">
+                        <i class="fa-solid fa-boxes-stacked"></i> Mayorista <small>(>$100k)</small>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pastillas rápidas en PC (ocultas en móvil para evitar scroll lateral molesto) -->
+            <div class="categories-scroll-wrapper desktop-only-pills">
                 <div class="categories-pills" id="categoryPills">
                     <button class="pill-btn active" data-category="all">
                         <i class="fa-solid fa-layer-group"></i> Todos los Productos
                     </button>
-                    <!-- Las categorías se inyectan dinámicamente desde /api/public/categories -->
                 </div>
             </div>
         </div>
@@ -370,14 +427,17 @@
                 <div class="results-info">
                     <span id="resultsCountText">Cargando catálogo...</span>
                     <span id="activeFilterBadge" class="filter-tag" style="display: none;"></span>
+                    <button id="resetCategoryQuickBtn" class="btn-clear-filter" style="display: none;" onclick="tiendaApp.resetFilters()">
+                        <i class="fa-solid fa-xmark"></i> Ver todo
+                    </button>
                 </div>
                 <div class="catalog-quick-sort">
                     <label for="sortSelect">Ordenar por:</label>
                     <select id="sortSelect" class="sort-select">
-                        <option value="featured">Destacados</option>
-                        <option value="price-asc">Menor precio</option>
-                        <option value="price-desc">Mayor precio</option>
-                        <option value="name-asc">Nombre A-Z</option>
+                        <option value="featured">⭐ Destacados</option>
+                        <option value="price-asc">💲 Menor precio</option>
+                        <option value="price-desc">💎 Mayor precio</option>
+                        <option value="name-asc">🔤 Nombre A-Z</option>
                     </select>
                 </div>
             </div>
@@ -394,7 +454,7 @@
                 <i class="fa-solid fa-wine-bottle empty-icon"></i>
                 <h3>No se encontraron productos</h3>
                 <p>Intentá buscar con otra palabra clave o seleccioná otra categoría.</p>
-                <button class="btn btn-secondary" onclick="tiendaApp.resetFilters()">
+                <button class="btn btn-primary" onclick="tiendaApp.resetFilters()">
                     Ver todos los productos
                 </button>
             </div>
@@ -416,6 +476,16 @@
             </button>
         </div>
 
+        <!-- Barra de Progreso Mayorista Dinámica ($100.000) -->
+        <div class="wholesale-progress-box" id="wholesaleProgressBox">
+            <div class="wholesale-progress-text" id="wholesaleProgressText">
+                Agregá productos para calcular tu descuento mayorista
+            </div>
+            <div class="wholesale-progress-track">
+                <div class="wholesale-progress-fill" id="wholesaleProgressFill" style="width: 0%;"></div>
+            </div>
+        </div>
+
         <!-- Lista de Productos en el Carrito -->
         <div class="cart-body" id="cartItemsContainer">
             <!-- Items generados dinámicamente -->
@@ -426,17 +496,21 @@
             <!-- Aviso Mayorista dinámico -->
             <div id="wholesaleNoticeBox" class="wholesale-alert" style="display: none;">
                 <i class="fa-solid fa-award"></i>
-                <span><strong>¡Calificas para compra mayorista!</strong> Al coordinar tu pedido por WhatsApp te aplicaremos los descuentos mayoristas correspondientes.</span>
+                <span id="wholesaleNoticeText"><strong>¡Precio Mayorista Activado!</strong> Se aplicaron automáticamente los valores mayoristas a tus productos.</span>
             </div>
 
             <!-- Totales -->
             <div class="cart-summary-totals">
+                <div class="summary-row" id="cartSavingsRow" style="display: none; color: #16a34a; font-weight: 700;">
+                    <span>🎉 Ahorro Mayorista</span>
+                    <span id="cartSavingsAmount">-$ 0</span>
+                </div>
                 <div class="summary-row">
                     <span>Subtotal</span>
                     <span id="cartSubtotal">$ 0</span>
                 </div>
                 <div class="summary-row total-row">
-                    <span>Total Estimado</span>
+                    <span>Total Final</span>
                     <span id="cartTotal" class="total-amount">$ 0</span>
                 </div>
             </div>
@@ -506,7 +580,7 @@
                 </div>
                 
                 <p class="order-notice">
-                    <i class="fa-solid fa-shield-halved"></i> Tus datos no serán compartidos y se utilizan únicamente para procesar tu pedido.
+                    <i class="fa-solid fa-shield-halved"></i> Tus datos se utilizan únicamente para coordinar la entrega de tu pedido.
                 </p>
             </div>
         </div>
@@ -563,27 +637,44 @@
         </div>
     </footer>
 
+    <!-- BOTONES RÁPIDOS FLOTANTES (VOLVER ARRIBA / BUSCAR + CATEGORÍAS) -->
+    <div class="quick-fab-group" id="quickFabGroup">
+        <button class="quick-fab-btn categories-fab" onclick="tiendaApp.openCategoriesMenu()" title="Abrir Categorías">
+            <i class="fa-solid fa-bars"></i>
+            <span>Categorías</span>
+        </button>
+        <button class="quick-fab-btn search-fab" onclick="tiendaApp.focusSearchTop()" title="Buscar bebida o subir">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+        <button class="quick-fab-btn top-fab" onclick="tiendaApp.scrollToTop()" title="Volver arriba">
+            <i class="fa-solid fa-arrow-up"></i>
+        </button>
+    </div>
+
     <!-- Botón flotante móvil de Carrito -->
     <button id="floatingCartBtn" class="floating-cart-btn" aria-label="Ver Carrito">
         <i class="fa-solid fa-cart-shopping"></i>
         <span id="floatingCartCount" class="floating-badge">0</span>
     </button>
 
-    <!-- Barra flotante móvil de Carrito (estilo La Barra CCU / PedidosYa) -->
+    <!-- Barra flotante móvil de Carrito (estilo PedidosYa / TaDa con progreso mayorista) -->
     <div id="mobileBottomBar" class="mobile-bottom-bar" onclick="tiendaApp.openCart()" aria-label="Ver mi pedido">
-        <div class="mobile-bottom-bar-left">
-            <div class="mobile-bar-icon-wrap">
-                <i class="fa-solid fa-cart-shopping"></i>
-                <span id="mobileBarBadge" class="mobile-bar-badge">0</span>
+        <div class="mobile-bar-wholesale-strip" id="mobileBarWholesaleStrip"></div>
+        <div class="mobile-bottom-bar-inner">
+            <div class="mobile-bottom-bar-left">
+                <div class="mobile-bar-icon-wrap">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span id="mobileBarBadge" class="mobile-bar-badge">0</span>
+                </div>
+                <div class="mobile-bar-info">
+                    <span class="mobile-bar-count"><span id="mobileBarCountNum">0</span> productos</span>
+                    <span class="mobile-bar-total" id="mobileBarTotal">$ 0</span>
+                </div>
             </div>
-            <div class="mobile-bar-info">
-                <span class="mobile-bar-count"><span id="mobileBarCountNum">0</span> productos</span>
-                <span class="mobile-bar-total" id="mobileBarTotal">$ 0</span>
+            <div class="mobile-bottom-bar-btn">
+                <span>Ver Pedido</span>
+                <i class="fa-solid fa-arrow-right"></i>
             </div>
-        </div>
-        <div class="mobile-bottom-bar-btn">
-            <span>Ver Pedido</span>
-            <i class="fa-solid fa-arrow-right"></i>
         </div>
     </div>
 

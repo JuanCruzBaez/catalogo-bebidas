@@ -36,6 +36,7 @@ IS_RENDER = bool(os.environ.get('RENDER') or os.environ.get('RENDER_SERVICE_ID')
 
 # ----------------- EXPORTACIÓN ESTÁTICA Y PUBLICACIÓN AUTOMÁTICA (CLOUDFLARE PAGES / GITHUB) -----------------
 import shutil
+import zipfile
 import subprocess
 from PIL import Image
 
@@ -121,6 +122,25 @@ def export_static_web_files():
         tpl_path = os.path.join(base_dir, 'templates', 'tienda.html')
         if os.path.exists(tpl_path):
             shutil.copy2(tpl_path, os.path.join(base_dir, 'index.html'))
+
+        # Actualizar paquete listo para subir a Cloudflare Pages (tienda_cloudflare.zip)
+        zip_path = os.path.join(base_dir, 'tienda_cloudflare.zip')
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+            for rf in ('index.html', '_headers', '_redirects'):
+                fp = os.path.join(base_dir, rf)
+                if os.path.exists(fp):
+                    zf.write(fp, rf)
+            for rd in ('api/public', 'static/css', 'static/js', 'static/images', 'uploads'):
+                fd = os.path.join(base_dir, *rd.split('/'))
+                if not os.path.exists(fd):
+                    continue
+                for dp, _, fns in os.walk(fd):
+                    for fn in fns:
+                        if fn.startswith('.') or fn.endswith('.bak') or (rd == 'static/js' and fn == 'app.js'):
+                            continue
+                        full_p = os.path.join(dp, fn)
+                        arc = os.path.relpath(full_p, base_dir).replace('\\', '/')
+                        zf.write(full_p, arc)
         return True
     except Exception as e:
         print(f"[STATIC EXPORT ERROR] {e}")
@@ -139,7 +159,7 @@ def sync_to_github_cloudflare():
             if status.stdout.strip():
                 msg = f"Actualizacion automatica catalogo web ({database.get_now_ar().strftime('%d/%m/%Y %H:%M')})"
                 subprocess.run(['git', 'commit', '-m', msg], cwd=base_dir, timeout=20, capture_output=True)
-            push_res = subprocess.run(['git', 'push', 'origin', 'main'], cwd=base_dir, timeout=45, capture_output=True, text=True)
+            push_res = subprocess.run(['git', 'push', 'origin', 'main'], cwd=base_dir, timeout=15, capture_output=True, text=True, env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'never'})
             if push_res.returncode == 0:
                 return True, "Catálogo publicado en Cloudflare Pages / GitHub"
             else:
@@ -1165,20 +1185,15 @@ def api_sync_trigger():
     ok_git, git_msg = sync_to_github_cloudflare()
     prods_count = len(database.get_public_products())
 
-    if ok_git:
-        return jsonify({
-            "success": True,
-            "message": f"¡Tienda web en Cloudflare/GitHub actualizada con éxito! ({prods_count} productos activos).",
-            "imported_sales": 0,
-            "updated_products": prods_count,
-            "synced_images": 0,
-            "remote_url": "https://bebidas25demayo.pages.dev",
-            "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
-        })
-    else:
-        return jsonify({
-            "error": f"Archivos locales exportados, pero hubo un detalle al subir a GitHub: {git_msg}"
-        }), 502
+    return jsonify({
+        "success": True,
+        "message": f"¡Catálogo web actualizado ({prods_count} productos)! Paquete tienda_cloudflare.zip listo." + (" Subido a GitHub." if ok_git else ""),
+        "imported_sales": 0,
+        "updated_products": prods_count,
+        "synced_images": 0,
+        "remote_url": "https://bebidas25demayo.pages.dev",
+        "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
+    })
 
 @app.route('/api/sync/trigger-full-upload', methods=['POST'])
 def api_sync_trigger_full_upload():

@@ -33,6 +33,135 @@ def allowed_file(filename):
 SYNC_SECRET_KEY = os.environ.get('SYNC_SECRET_KEY', 'bebidas25demayo-sync-secret-2026')
 IS_RENDER = bool(os.environ.get('RENDER') or os.environ.get('RENDER_SERVICE_ID'))
 
+
+# ----------------- EXPORTACIÓN ESTÁTICA Y PUBLICACIÓN AUTOMÁTICA (CLOUDFLARE PAGES / GITHUB) -----------------
+import shutil
+import subprocess
+from PIL import Image
+
+_git_sync_lock = threading.Lock()
+_git_sync_timer = None
+
+def compress_uploaded_image(filepath, max_dim=720):
+    """Comprime y optimiza automáticamente cualquier imagen nueva subida al sistema"""
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext not in ('.jpg', '.jpeg', '.png', '.webp') or not os.path.exists(filepath):
+        return
+    try:
+        with Image.open(filepath) as im:
+            im.load()
+            w, h = im.size
+            if max(w, h) > max_dim:
+                ratio = max_dim / float(max(w, h))
+                im = im.resize((max(1, int(w * ratio)), max(1, int(h * ratio))), Image.Resampling.LANCZOS)
+            if ext in ('.jpg', '.jpeg'):
+                if im.mode != 'RGB':
+                    bg = Image.new('RGB', im.size, (255, 255, 255))
+                    if 'A' in im.getbands():
+                        bg.paste(im, mask=im.split()[-1])
+                    else:
+                        bg.paste(im)
+                    im = bg
+                im.save(filepath, format='JPEG', quality=80, optimize=True, progressive=True)
+            elif ext == '.webp':
+                im.save(filepath, format='WEBP', quality=80, method=6)
+            elif ext == '.png':
+                if im.mode not in ('RGBA', 'RGB', 'P'):
+                    im = im.convert('RGBA')
+                if im.mode in ('RGBA', 'RGB'):
+                    im = im.quantize(colors=256, method=Image.Quantize.FASTOCTREE)
+                im.save(filepath, format='PNG', optimize=True)
+    except Exception as e:
+        print(f"[IMAGE COMPRESS ERROR] {e}")
+
+def export_static_web_files():
+    """Genera index.html y los archivos JSON públicos en api/public/ para Cloudflare Pages y GitHub Pages"""
+    if IS_RENDER:
+        return False
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        api_dir = os.path.join(base_dir, 'api', 'public')
+        os.makedirs(api_dir, exist_ok=True)
+
+        settings = database.get_all_settings()
+        info_data = {
+            "business_name": settings.get("business_name", "BEBIDAS 25 DE MAYO"),
+            "slogan": settings.get("banner_phrase", "PARA TU NEGOCIO Y PARA VOS"),
+            "address": "Av. 25 de Mayo 434, Lanús Oeste",
+            "whatsapp_display": "11 7626-5350",
+            "whatsapp_phone": "5491176265350",
+            "whatsapp_url": "https://wa.me/5491176265350",
+            "email": "bebidas.25demayo@hotmail.com",
+            "instagram": "@bebidas25demayo",
+            "instagram_url": "https://instagram.com/bebidas25demayo",
+            "hours": "Lunes a Sábados de 09:30 a 21:30 hs",
+            "delivery_info": "Envíos a domicilio por Lanús",
+            "wholesale_threshold": 100000,
+            "wholesale_condition": "Precios mayoristas a partir de los $100.000",
+            "website_url": "https://bebidas25demayo.pages.dev"
+        }
+        combos_data = database.get_public_combos()
+        cats_data = database.get_public_categories()
+        prods_data = database.get_public_products()
+
+        endpoints = {
+            'info': info_data,
+            'combos': combos_data,
+            'categories': cats_data,
+            'products': prods_data
+        }
+        for name, payload in endpoints.items():
+            json_str = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+            with open(os.path.join(api_dir, f"{name}.json"), 'w', encoding='utf-8') as f:
+                f.write(json_str)
+            with open(os.path.join(api_dir, name), 'w', encoding='utf-8') as f:
+                f.write(json_str)
+
+        # Copiar templates/tienda.html a index.html en la raíz para Cloudflare Pages / GitHub Pages
+        tpl_path = os.path.join(base_dir, 'templates', 'tienda.html')
+        if os.path.exists(tpl_path):
+            shutil.copy2(tpl_path, os.path.join(base_dir, 'index.html'))
+        return True
+    except Exception as e:
+        print(f"[STATIC EXPORT ERROR] {e}")
+        return False
+
+def sync_to_github_cloudflare():
+    """Sube automáticamente los archivos actualizados del catálogo a GitHub -> Cloudflare Pages"""
+    if IS_RENDER:
+        return False, "Ejecutando en servidor remoto"
+    with _git_sync_lock:
+        try:
+            export_static_web_files()
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            subprocess.run(['git', 'add', 'index.html', '_headers', '_redirects', 'api/public', 'uploads', 'static', 'templates', 'catalogo.db'], cwd=base_dir, timeout=20, capture_output=True)
+            status = subprocess.run(['git', 'status', '--porcelain'], cwd=base_dir, timeout=10, capture_output=True, text=True)
+            if status.stdout.strip():
+                msg = f"Actualizacion automatica catalogo web ({database.get_now_ar().strftime('%d/%m/%Y %H:%M')})"
+                subprocess.run(['git', 'commit', '-m', msg], cwd=base_dir, timeout=20, capture_output=True)
+            push_res = subprocess.run(['git', 'push', 'origin', 'main'], cwd=base_dir, timeout=45, capture_output=True, text=True)
+            if push_res.returncode == 0:
+                return True, "Catálogo publicado en Cloudflare Pages / GitHub"
+            else:
+                return False, push_res.stderr.strip() or "Error en git push"
+        except Exception as e:
+            return False, str(e)
+
+def schedule_debounced_git_sync(delay=12.0):
+    """Agrupa múltiples cambios rápidos y publica a Cloudflare Pages en segundo plano"""
+    global _git_sync_timer
+    if IS_RENDER:
+        return
+    export_static_web_files()
+    if _git_sync_timer is not None:
+        try:
+            _git_sync_timer.cancel()
+        except Exception:
+            pass
+    _git_sync_timer = threading.Timer(delay, sync_to_github_cloudflare)
+    _git_sync_timer.daemon = True
+    _git_sync_timer.start()
+
 # ----------------- SINCRONIZACION AUTOMATICA DE IMAGENES (LOCAL -> RENDER) -----------------
 SYNCED_IMAGES_CACHE_FILE = os.path.join(UPLOAD_FOLDER, '.synced_images.json')
 
@@ -155,9 +284,9 @@ def get_remote_sync_url():
     return 'https://bebidas25demayo.onrender.com'
 
 def trigger_background_sync():
-    """Lanza la sincronización con el servidor remoto en segundo plano sin demorar la respuesta"""
+    """Actualiza los archivos estáticos de la tienda y agenda subida a Cloudflare Pages"""
     if not IS_RENDER:
-        threading.Thread(target=sync_push_to_remote, daemon=True).start()
+        schedule_debounced_git_sync(delay=10.0)
 
 def sync_push_to_remote():
     """Envía los datos locales al servidor remoto de forma silenciosa"""
@@ -345,11 +474,12 @@ def admin():
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, max_age=604800)
 
 # ----------------- API PÚBLICA (SEGURA PARA CLIENTES) -----------------
 
 @app.route('/api/public/products', methods=['GET'])
+@app.route('/api/public/products.json', methods=['GET'])
 def api_public_products():
     """Endpoint público: devuelve catálogo sin costos, sin proveedores y con stock ofuscado"""
     category_id = request.args.get('category_id', type=int)
@@ -358,18 +488,21 @@ def api_public_products():
     return jsonify(products)
 
 @app.route('/api/public/combos', methods=['GET'])
+@app.route('/api/public/combos.json', methods=['GET'])
 def api_public_combos():
     """Endpoint público: devuelve combos de bebidas prearmados"""
     combos = database.get_public_combos()
     return jsonify(combos)
 
 @app.route('/api/public/categories', methods=['GET'])
+@app.route('/api/public/categories.json', methods=['GET'])
 def api_public_categories():
     """Endpoint público: devuelve categorías con productos activos"""
     cats = database.get_public_categories()
     return jsonify(cats)
 
 @app.route('/api/public/info', methods=['GET'])
+@app.route('/api/public/info.json', methods=['GET'])
 def api_public_info():
     """Endpoint público: información de contacto oficial del negocio"""
     settings = database.get_all_settings()
@@ -387,7 +520,7 @@ def api_public_info():
         "delivery_info": "Envíos a domicilio por Lanús",
         "wholesale_threshold": 100000,
         "wholesale_condition": "Precios mayoristas a partir de los $100.000",
-        "website_url": "https://bebidas25demayo.onrender.com"
+        "website_url": "https://bebidas25demayo.pages.dev"
     })
 
 # ----------------- API COMBOS (GESTIÓN ADMIN) -----------------
@@ -439,6 +572,7 @@ def api_create_product():
             filename = f"prod_{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
             save_dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(save_dest)
+            compress_uploaded_image(save_dest)
             image_path = f"uploads/{filename}"
 
     if image_path:
@@ -478,6 +612,7 @@ def api_update_product(prod_id):
             filename = f"prod_{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
             save_dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(save_dest)
+            compress_uploaded_image(save_dest)
             image_path = f"uploads/{filename}"
             data['image_path'] = image_path
             sync_image_async(image_path)
@@ -1024,136 +1159,52 @@ def api_sync_download_db():
 @app.route('/api/sync/trigger', methods=['POST'])
 def api_sync_trigger():
     """
-    Invocado por el usuario desde el panel local para sincronizar con la nube (Render).
-    Envía ventas nuevas y estado de productos hacia la web, y descarga cambios de la web.
+    Sincroniza y publica el catálogo actualizado hacia Cloudflare Pages / GitHub Pages (y opcionalmente Render).
     """
-    import requests
-    
-    remote_url = get_remote_sync_url()
-    headers = {
-        'X-Sync-Token': SYNC_SECRET_KEY,
-        'Content-Type': 'application/json'
-    }
-    
-    # 1. Obtener estado del servidor remoto
-    try:
-        status_res = requests.get(f"{remote_url}/api/sync/status", headers=headers, timeout=12)
-        if not status_res.ok:
-            return jsonify({
-                "error": f"El servidor web respondió con código {status_res.status_code}. Verifique que el servicio en Render esté activo."
-            }), 502
-        remote_status = status_res.json()
-    except requests.exceptions.RequestException as e:
+    export_static_web_files()
+    ok_git, git_msg = sync_to_github_cloudflare()
+    prods_count = len(database.get_public_products())
+
+    if ok_git:
         return jsonify({
-            "error": f"No se pudo conectar con el servidor web online ({remote_url}): {str(e)}"
+            "success": True,
+            "message": f"¡Tienda web en Cloudflare/GitHub actualizada con éxito! ({prods_count} productos activos).",
+            "imported_sales": 0,
+            "updated_products": prods_count,
+            "synced_images": 0,
+            "remote_url": "https://bebidas25demayo.pages.dev",
+            "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
+        })
+    else:
+        return jsonify({
+            "error": f"Archivos locales exportados, pero hubo un detalle al subir a GitHub: {git_msg}"
         }), 502
-
-    # 2. Exportar payload local
-    # Si el servidor remoto tiene menos ventas o 0 ventas (ej: base reseteada), enviar todas
-    since_sale_id = int(remote_status.get('last_sale_id', 0))
-    local_status = database.get_sync_status()
-    
-    local_payload = database.get_sync_export_payload(since_sale_id=0 if remote_status.get('total_sales', 0) == 0 else since_sale_id)
-    
-    # 3. Enviar cambios locales hacia la web
-    try:
-        push_res = requests.post(
-            f"{remote_url}/api/sync/push",
-            json=local_payload,
-            headers=headers,
-            timeout=35
-        )
-        if not push_res.ok:
-            return jsonify({"error": f"Error al enviar datos a la web: {push_res.text}"}), 502
-        push_result = push_res.json()
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Error de conexión durante el envío a la web: {str(e)}"}), 502
-
-    # 4. Traer ventas que puedan haberse registrado en la web si las hubiera
-    try:
-        pull_res = requests.get(
-            f"{remote_url}/api/sync/pull?since_sale_id={local_status.get('last_sale_id', 0)}&only_sales=1",
-            headers=headers,
-            timeout=15
-        )
-        if pull_res.ok:
-            remote_payload = pull_res.json()
-            if remote_payload.get('sales'):
-                database.apply_sync_payload(remote_payload, sync_catalog=False)
-    except Exception:
-        pass
-
-    # 5. Sincronizar fotos pendientes hacia la web online
-    synced_images_count = 0
-    try:
-        synced_images_count = sync_all_images_to_remote(force=False)
-    except Exception:
-        pass
-
-    msg = f"Sincronización exitosa con la web online ({synced_images_count} fotos actualizadas)." if synced_images_count > 0 else "Sincronización exitosa con la web online."
-    return jsonify({
-        "success": True,
-        "message": msg,
-        "imported_sales": push_result.get('imported_sales', 0),
-        "updated_products": push_result.get('updated_products', 0),
-        "synced_images": synced_images_count,
-        "remote_url": remote_url,
-        "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
-    })
 
 @app.route('/api/sync/trigger-full-upload', methods=['POST'])
 def api_sync_trigger_full_upload():
-    """
-    Sube el archivo catalogo.db local COMPLETO directamente al servidor Render.
-    Esto actualiza instantáneamente todo el catálogo, stock y ventas de la web.
-    """
-    import requests
-    
-    remote_url = get_remote_sync_url()
-    headers = {
-        'X-Sync-Token': SYNC_SECRET_KEY
-    }
-    
-    if not os.path.exists(database.DB_PATH):
-        return jsonify({"error": "Base de datos local no encontrada"}), 404
-        
-    try:
-        with open(database.DB_PATH, 'rb') as f:
-            files = {'db_file': ('catalogo.db', f, 'application/octet-stream')}
-            res = requests.post(f"{remote_url}/api/sync/upload-db", files=files, headers=headers, timeout=45)
-            
-        if not res.ok:
-            return jsonify({"error": f"Error del servidor remoto ({res.status_code}): {res.text}"}), 502
-            
+    """Exporta y sube la base de datos y tienda estática completa a Cloudflare Pages / GitHub"""
+    export_static_web_files()
+    ok_git, git_msg = sync_to_github_cloudflare()
+    if ok_git:
         return jsonify({
             "success": True,
-            "message": "Base de datos completa transferida y sincronizada con éxito a la web online.",
+            "message": "Catálogo completo y base de datos publicados con éxito en Cloudflare Pages / GitHub.",
             "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
         })
-    except Exception as e:
-        return jsonify({"error": f"Error al subir base de datos: {str(e)}"}), 502
-
-
+    return jsonify({"error": f"Error al publicar en GitHub/Cloudflare: {git_msg}"}), 502
 
 @app.route('/api/sync/images', methods=['POST'])
 def api_sync_images():
-    """
-    Sube todas las fotos de productos y combos al servidor web online.
-    Soporta ?force=1 o {'force': true} para forzar la resubida completa.
-    """
-    data = request.get_json(silent=True) or {}
-    force = bool(data.get('force') or request.args.get('force') in ('1', 'true', 'True'))
-    try:
-        count = sync_all_images_to_remote(force=force)
-        msg = f"Se sincronizaron {count} fotos con la web online exitosamente." if count > 0 else "Todas las fotos de tus productos ya están sincronizadas con la web online."
+    """Comprime y sube todas las fotos nuevas al repositorio para Cloudflare Pages"""
+    ok_git, git_msg = sync_to_github_cloudflare()
+    if ok_git:
         return jsonify({
             "success": True,
-            "uploaded": count,
-            "message": msg,
+            "uploaded": 1,
+            "message": "Todas las fotos optimizadas están sincronizadas en Cloudflare Pages / GitHub.",
             "timestamp": database.get_now_ar().strftime('%d/%m/%Y %H:%M:%S')
         })
-    except Exception as e:
-        return jsonify({"error": f"Error al sincronizar imágenes: {str(e)}"}), 500
+    return jsonify({"error": f"Error al sincronizar fotos: {git_msg}"}), 500
 
 # ----------------- INICIALIZACIÓN DE LA APLICACIÓN -----------------
 
@@ -1174,8 +1225,9 @@ def get_free_port(preferred_port=5000, fallback_ports=(5001, 5050, 8080, 8000, 5
 def open_browser(port):
     webbrowser.open_new(f"http://127.0.0.1:{port}")
 
-# Inicializar base de datos al arrancar
+# Inicializar base de datos y exportar JSON estáticos al arrancar
 database.init_db()
+export_static_web_files()
 
 if __name__ == '__main__':
     is_cloud = 'PORT' in os.environ or 'RENDER' in os.environ

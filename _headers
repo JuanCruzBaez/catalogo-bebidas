@@ -1,0 +1,12 @@
+/uploads/*
+  Cache-Control: public, max-age=604800
+
+/static/*
+  Cache-Control: public, max-age=86400
+
+/api/public/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Access-Control-Allow-Origin: *
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate

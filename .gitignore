@@ -9,20 +9,24 @@ __pycache__/
 .remotion/
 temp_audio/
 processed_audio/
+scratch/
+uploads_backup_padding/
+*.bak
 
-# Video renders & frames (pesados, no necesarios en servidor web)
+# Video renders & local media (pesados, no necesarios en Cloudflare Pages)
 *.mp4
 test_frame*.jpg
 test_render.png
-
-# Video remotion (solo para generación de videos local)
 video-remotion/
 
-# Facturas locales
+# Archivos administrativos e impresiones locales
 Facturas emitidas/
 catalogo_backup_*.db
+*.pdf
+folleto*.png
+folleto*.html
+historias_ig/
 uploads/Material para videos/
-
-
 uploads/anuncios_google_ads/
 uploads/Publicaciones IG/
+uploads/backup_original/

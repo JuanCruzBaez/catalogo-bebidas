@@ -151,11 +151,8 @@ document.addEventListener('alpine:init', () => {
             this.isLoading = false;
 
             // Sincronización automática silenciosa si estamos en entorno local
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            if (isLocal) {
-                setTimeout(() => this.silentSync(), 2500);
-                setInterval(() => this.silentSync(), 45000);
-            }
+            // Desactivado el polling cada 45s para no consumir ancho de banda innecesario.
+            // La sincronización se ejecuta al guardar cambios o con el botón Sincronizar Web.
         },
 
         showToast(message, type = 'success') {

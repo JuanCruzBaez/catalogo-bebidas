@@ -1,0 +1,5 @@
+/tienda /index.html 200
+/api/public/info /api/public/info.json 200
+/api/public/combos /api/public/combos.json 200
+/api/public/categories /api/public/categories.json 200
+/api/public/products /api/public/products.json 200

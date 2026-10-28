@@ -166,12 +166,12 @@
         let html = '';
         state.cart.forEach((it, idx) => {
             const isCombo = it.type === 'combo';
-            const imgPath = it.image ? `/${it.image}` : '/uploads/logo.jpg';
+            const imgPath = it.image ? `${it.image.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
 
             html += `
                 <div class="cart-item">
                     <div class="cart-item-img">
-                        <img src="${imgPath}" onerror="this.src='/uploads/logo.jpg'" alt="${it.name}">
+                        <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${it.name}">
                     </div>
                     <div class="cart-item-info">
                         <div class="cart-item-name" title="${it.name}">
@@ -291,14 +291,14 @@
 
         let html = '';
         state.combos.forEach(c => {
-            const imgPath = c.image_path ? `/${c.image_path}` : '/uploads/logo.jpg';
+            const imgPath = c.image_path ? `${c.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
             const itemsList = (c.items || []).map(it => `<li><i class="fa-solid fa-check"></i> ${it.qty}x ${it.name}</li>`).join('');
 
             html += `
                 <div class="combo-card">
                     ${c.badge ? `<span class="combo-badge-pill">${c.badge}</span>` : ''}
                     <div class="combo-image-box">
-                        <img src="${imgPath}" onerror="this.src='/uploads/logo.jpg'" alt="${c.name}">
+                        <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${c.name}">
                     </div>
                     <div class="combo-content">
                         <h3 class="combo-name">${c.name}</h3>
@@ -517,7 +517,7 @@
 
         let html = '';
         filtered.forEach(p => {
-            const imgPath = p.image_path ? `/${p.image_path}` : '/uploads/logo.jpg';
+            const imgPath = p.image_path ? `${p.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
             
             // Lógica de badges seguros (sin filtrar stock exacto a menos que sea crítico)
             let stockBadge = '';
@@ -535,7 +535,7 @@
                     ${stockBadge}
                     ${featuredBadge}
                     <div class="product-image-container">
-                        <img src="${imgPath}" onerror="this.src='/uploads/logo.jpg'" alt="${p.name}" loading="lazy">
+                        <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${p.name}" loading="lazy">
                     </div>
                     <div class="product-info">
                         <span class="product-category-tag">${p.category_name}</span>
@@ -754,31 +754,36 @@
         loadCartFromStorage();
 
         try {
-            // 1. Cargar Configuración pública
-            const confRes = await fetch('/api/public/info');
-            if (confRes.ok) {
-                state.config = await confRes.json();
-            }
+            const fetchEndpoint = async (name) => {
+                const bust = '?v=' + Date.now();
+                try {
+                    const r1 = await fetch(`api/public/${name}.json${bust}`);
+                    if (r1.ok) return await r1.json();
+                } catch (e) {}
+                const r2 = await fetch(`/api/public/${name}${bust}`);
+                if (r2.ok) return await r2.json();
+                return null;
+            };
 
-            // 2. Cargar Combos
-            const combosRes = await fetch('/api/public/combos');
-            if (combosRes.ok) {
-                state.combos = await combosRes.json();
+            const [confData, combosData, catsData, prodsData] = await Promise.all([
+                fetchEndpoint('info'),
+                fetchEndpoint('combos'),
+                fetchEndpoint('categories'),
+                fetchEndpoint('products')
+            ]);
+
+            if (confData) state.config = confData;
+            if (combosData) {
+                state.combos = combosData;
                 renderCombos();
                 updateCarouselPricing();
             }
-
-            // 3. Cargar Categorías
-            const catsRes = await fetch('/api/public/categories');
-            if (catsRes.ok) {
-                state.categories = await catsRes.json();
+            if (catsData) {
+                state.categories = catsData;
                 renderCategories();
             }
-
-            // 4. Cargar Productos públicos seguros
-            const prodsRes = await fetch('/api/public/products');
-            if (prodsRes.ok) {
-                state.products = await prodsRes.json();
+            if (prodsData) {
+                state.products = prodsData;
                 renderFilteredProducts();
             }
 
@@ -805,7 +810,7 @@
 
         if (!modal || !img) return;
 
-        img.src = item.image || '/uploads/logo.jpg';
+        img.src = item.image || 'uploads/logo.jpg';
         img.alt = item.name || '';
         if (cat) cat.innerText = item.category || 'BEBIDAS 25 DE MAYO';
         if (title) title.innerText = item.name || '';
@@ -890,7 +895,7 @@
                 const prod = state.products.find(p => String(p.id) === String(prodId));
                 if (prod) {
                     openImageZoomModal({
-                        image: prod.image_path ? `/${prod.image_path}` : '/uploads/logo.jpg',
+                        image: prod.image_path ? `${prod.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg',
                         name: prod.name,
                         category: prod.category_name,
                         presentation: prod.presentation || 'Unidad',

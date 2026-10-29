@@ -58,14 +58,24 @@
     padding: 0;
 }
 
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
+    width: 100%;
+    max-width: 100%;
     background-color: var(--bg-canvas);
     color: var(--text-primary);
     font-family: var(--font-body);
     font-size: 14.5px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
+    position: relative;
 }
 
 a {
@@ -100,7 +110,7 @@ input:focus, select:focus, textarea:focus {
 
 .container {
     width: 100%;
-    max-width: 1280px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 0 20px;
 }
@@ -405,6 +415,16 @@ input:focus, select:focus, textarea:focus {
     pointer-events: auto;
 }
 
+@keyframes drawerSlideInLeft {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes drawerSlideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
 .categories-drawer {
     position: fixed;
     top: 0;
@@ -415,14 +435,14 @@ input:focus, select:focus, textarea:focus {
     background: #ffffff;
     box-shadow: 8px 0 35px rgba(15, 23, 42, 0.25);
     z-index: 1101;
-    transform: translateX(-100%);
-    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
+    display: none;
     flex-direction: column;
 }
 
 .categories-drawer.open {
+    display: flex;
     transform: translateX(0);
+    animation: drawerSlideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .categories-drawer-header {
@@ -1014,12 +1034,15 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 10px;
+    width: 100%;
 }
 
 .btn-categories-trigger {
-    flex: 1;
+    flex: 1 1 240px;
+    min-width: 0;
     max-width: 440px;
     background: #0f172a;
     color: #ffffff;
@@ -1245,12 +1268,14 @@ input:focus, select:focus, textarea:focus {
 
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    width: 100%;
 }
 
 /* Tarjeta individual de producto en Blanco Puro */
 .product-card {
+    min-width: 0;
     background: #ffffff;
     border: 1.5px solid #e2e8f0;
     border-radius: var(--radius-md);
@@ -1566,14 +1591,14 @@ input:focus, select:focus, textarea:focus {
     background: #ffffff;
     box-shadow: var(--shadow-modal);
     z-index: 1001;
-    transform: translateX(100%);
-    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
+    display: none;
     flex-direction: column;
 }
 
 .cart-drawer.open {
+    display: flex;
     transform: translateX(0);
+    animation: drawerSlideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cart-header {
@@ -2454,16 +2479,24 @@ input:focus, select:focus, textarea:focus {
     }
 
     .categories-bar-section {
-        top: 0;
-        padding: 8px 0;
+        position: relative;
+        top: auto;
+        z-index: 20;
+        padding: 10px 0;
+        scroll-margin-top: 118px;
     }
 
     .catalog-nav-toolbar {
+        flex-direction: column;
+        align-items: stretch;
         margin-bottom: 0;
         gap: 8px;
     }
 
     .btn-categories-trigger {
+        flex: none;
+        width: 100%;
+        max-width: 100%;
         padding: 7px 10px;
     }
 
@@ -2480,15 +2513,28 @@ input:focus, select:focus, textarea:focus {
     .trigger-Action-pill {
         font-size: 10.5px;
         padding: 3px 7px;
+        flex-shrink: 0;
+    }
+
+    .price-mode-switcher {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px;
     }
 
     .price-mode-btn {
-        padding: 6px 8px;
-        font-size: 11px;
+        width: 100%;
+        justify-content: center;
+        padding: 7px 8px;
+        font-size: 11.5px;
+        white-space: nowrap;
     }
 
     .price-mode-btn small {
-        display: none;
+        display: inline;
+        font-size: 9.5px;
     }
 
     /* Carrusel móvil */
@@ -2527,51 +2573,136 @@ input:focus, select:focus, textarea:focus {
 
     .combo-image-box { height: 170px; }
 
-    /* Grilla de 2 productos por fila en móvil */
+    /* Grilla de 3 productos por fila en móvil */
     .products-catalog-section {
-        padding: 14px 0 105px 0;
+        padding: 12px 0 105px 0;
     }
 
     .products-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 8px !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
     }
 
     .container {
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .product-card {
+        border-radius: 10px;
+    }
+
+    .in-cart-pill,
+    .low-stock-badge,
+    .out-of-stock-badge,
+    .featured-badge {
+        font-size: 8.5px;
+        padding: 2px 5px;
+        top: 4px;
+    }
+
+    .in-cart-pill,
+    .featured-badge {
+        left: 4px;
+    }
+
+    .low-stock-badge,
+    .out-of-stock-badge {
+        right: 4px;
     }
 
     .product-image-container {
-        height: 160px;
-        padding: 6px;
+        height: 110px;
+        padding: 4px;
     }
 
     .product-info {
-        padding: 9px 8px 10px 8px;
+        padding: 6px;
+        min-width: 0;
+    }
+
+    .product-category-tag {
+        font-size: 8px;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .product-name {
-        font-size: 12.5px;
-        min-height: 32px;
+        font-size: 10.5px;
+        line-height: 1.2;
+        min-height: 25px;
+        margin-bottom: 2px;
+    }
+
+    .product-presentation {
+        font-size: 9px;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-pricing-box {
+        margin-bottom: 6px;
+        gap: 3px;
     }
 
     .product-price-minorista {
-        font-size: 21px;
+        font-size: 16px;
+        gap: 3px;
+        flex-wrap: wrap;
+    }
+
+    .product-price-minorista small {
+        font-size: 8px;
     }
 
     .product-price-mayorista {
-        padding: 3px 6px;
-        font-size: 10px;
+        padding: 2px 4px;
+        font-size: 8.5px;
+        border-radius: 4px;
+        flex-wrap: wrap;
+        gap: 2px;
     }
 
     .product-price-mayorista strong {
-        font-size: 14.5px;
+        font-size: 12px;
     }
 
-    .quantity-stepper button { width: 22px; height: 32px; }
-    .quantity-stepper input { width: 22px; height: 32px; font-size: 12px; }
-    .btn-add-cart { height: 32px; font-size: 12px; padding: 0 6px; }
+    .product-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .quantity-stepper {
+        width: 100%;
+        justify-content: space-between;
+        height: 26px;
+    }
+
+    .quantity-stepper button {
+        width: 26px;
+        height: 26px;
+        font-size: 11px;
+    }
+
+    .quantity-stepper input {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+        height: 26px;
+        font-size: 11px;
+    }
+
+    .btn-add-cart {
+        width: 100%;
+        height: 28px;
+        font-size: 10.5px;
+        padding: 0 4px;
+        gap: 4px;
+    }
 
     /* Botones rápidos flotantes ajustados para no chocar con barra inferior */
     .quick-fab-group {

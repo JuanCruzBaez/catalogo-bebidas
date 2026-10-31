@@ -1,8 +1,14 @@
 /uploads/*
   Cache-Control: public, max-age=604800
 
-/static/*
+/static/images/*
   Cache-Control: public, max-age=86400
+
+/static/css/*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/static/js/*
+  Cache-Control: no-cache, no-store, must-revalidate
 
 /api/public/*
   Cache-Control: no-cache, no-store, must-revalidate

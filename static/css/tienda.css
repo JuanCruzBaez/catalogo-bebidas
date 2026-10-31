@@ -2885,8 +2885,8 @@ input:focus, select:focus, textarea:focus {
 .hw-cobweb {
     position: absolute;
     top: 0;
-    width: 115px;
-    height: 115px;
+    width: 68px;
+    height: 68px;
     color: rgba(251, 146, 60, 0.26);
     pointer-events: none;
     z-index: 3;
@@ -2945,8 +2945,8 @@ input:focus, select:focus, textarea:focus {
         padding: 2px 8px;
     }
     .hw-cobweb {
-        width: 75px;
-        height: 75px;
+        width: 52px;
+        height: 52px;
     }
     .hw-bat-1 {
         top: 8px;

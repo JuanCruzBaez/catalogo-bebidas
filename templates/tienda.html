@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Estilos de la Tienda -->
-    <link rel="stylesheet" href="static/css/tienda.css">
+    <link rel="stylesheet" href="static/css/tienda.css?v=1793467953">
 </head>
 <body>
 
@@ -130,22 +130,22 @@
     <section class="hero-carousel-section" id="heroCarouselSection">
         <div class="container">
             <div class="carousel-wrapper halloween-decorated-carousel">
-                <!-- Adornos sutiles de Halloween (Telarañas y Murciélagos SVG) -->
-                <svg class="hw-cobweb hw-cobweb-left" viewBox="0 0 140 140" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <!-- Adornos sutiles de Halloween (Telarañas compactas en esquinas con tamaño fijo) -->
+                <svg class="hw-cobweb hw-cobweb-left" width="68" height="68" style="position:absolute;top:0;left:0;width:68px;height:68px;color:rgba(251,146,60,0.28);pointer-events:none;z-index:3;" viewBox="0 0 140 140" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path d="M0,0 L140,0 M0,0 L130,52 M0,0 L98,98 M0,0 L52,130 M0,0 L0,140"/>
                     <path d="M32,0 Q28,15 22,22 Q15,28 0,32"/>
                     <path d="M68,0 Q58,32 48,48 Q32,58 0,68"/>
                     <path d="M105,0 Q90,48 74,74 Q48,90 0,105"/>
                 </svg>
-                <svg class="hw-cobweb hw-cobweb-right" viewBox="0 0 140 140" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <svg class="hw-cobweb hw-cobweb-right" width="68" height="68" style="position:absolute;top:0;right:0;width:68px;height:68px;transform:scaleX(-1);color:rgba(251,146,60,0.28);pointer-events:none;z-index:3;" viewBox="0 0 140 140" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path d="M0,0 L140,0 M0,0 L130,52 M0,0 L98,98 M0,0 L52,130 M0,0 L0,140"/>
                     <path d="M32,0 Q28,15 22,22 Q15,28 0,32"/>
                     <path d="M68,0 Q58,32 48,48 Q32,58 0,68"/>
                     <path d="M105,0 Q90,48 74,74 Q48,90 0,105"/>
                 </svg>
-                <div class="hw-floating-decor" aria-hidden="true">
-                    <span class="hw-bat hw-bat-1">🦇</span>
-                    <span class="hw-bat hw-bat-2">🎃</span>
+                <div class="hw-floating-decor" style="position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden;" aria-hidden="true">
+                    <span class="hw-bat hw-bat-1" style="position:absolute;top:12px;right:82px;font-size:18px;opacity:0.6;">🦇</span>
+                    <span class="hw-bat hw-bat-2" style="position:absolute;bottom:12px;left:18px;font-size:18px;opacity:0.65;">🎃</span>
                 </div>
                 <!-- Slides Container -->
                 <div class="carousel-track" id="carouselTrack">
@@ -728,6 +728,6 @@
     <div id="toastNotification" class="toast-notification"></div>
 
     <!-- Scripts de la Tienda -->
-    <script src="static/js/tienda.js"></script>
+    <script src="static/js/tienda.js?v=1793467953"></script>
 </body>
 </html>

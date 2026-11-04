@@ -346,13 +346,14 @@
         );
     }
 
-    // ----------------- CARRUSEL HERO AUTOMÁTICO -----------------
+    // ----------------- CARRUSEL HERO AUTOMÁTICO Y MANUAL -----------------
     function initCarousel() {
         const slides = document.querySelectorAll('.carousel-slide');
         const dotsContainer = document.getElementById('carouselDots');
         const prevBtn = document.getElementById('carouselPrevBtn');
         const nextBtn = document.getElementById('carouselNextBtn');
         const track = document.getElementById('carouselTrack');
+        const wrapper = document.querySelector('.carousel-wrapper');
 
         if (!slides.length || !dotsContainer) return;
 
@@ -360,7 +361,10 @@
         slides.forEach((_, idx) => {
             const dot = document.createElement('div');
             dot.className = `carousel-dot ${idx === 0 ? 'active' : ''}`;
-            dot.addEventListener('click', () => goToSlide(idx));
+            dot.addEventListener('click', () => {
+                goToSlide(idx);
+                startTimer();
+            });
             dotsContainer.appendChild(dot);
         });
 
@@ -379,8 +383,20 @@
             goToSlide((state.carouselIndex - 1 + slides.length) % slides.length);
         }
 
-        if (nextBtn) nextBtn.addEventListener('click', nextSlide);
-        if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+        if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                nextSlide();
+                startTimer();
+            });
+        }
+        if (prevBtn) {
+            prevBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                prevSlide();
+                startTimer();
+            });
+        }
 
         function startTimer() {
             stopTimer();
@@ -392,9 +408,34 @@
         }
 
         startTimer();
-        if (track) {
-            track.addEventListener('mouseenter', stopTimer);
-            track.addEventListener('mouseleave', startTimer);
+
+        const targetEl = wrapper || track;
+        if (targetEl) {
+            targetEl.addEventListener('mouseenter', stopTimer);
+            targetEl.addEventListener('mouseleave', startTimer);
+
+            // Soporte de deslizamiento táctil (swipe) para móvil y tablet
+            let touchStartX = 0;
+            let touchStartY = 0;
+            targetEl.addEventListener('touchstart', (e) => {
+                if (e.touches && e.touches.length > 0) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    stopTimer();
+                }
+            }, { passive: true });
+
+            targetEl.addEventListener('touchend', (e) => {
+                if (e.changedTouches && e.changedTouches.length > 0) {
+                    const dx = e.changedTouches[0].clientX - touchStartX;
+                    const dy = e.changedTouches[0].clientY - touchStartY;
+                    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+                        if (dx < 0) nextSlide();
+                        else prevSlide();
+                    }
+                    startTimer();
+                }
+            }, { passive: true });
         }
     }
 

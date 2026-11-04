@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Estilos de la Tienda -->
-    <link rel="stylesheet" href="static/css/tienda.css?v=1793814064">
+    <link rel="stylesheet" href="static/css/tienda.css?v=1793815111">
 </head>
 <body>
 
@@ -124,6 +124,29 @@
     <section class="hero-carousel-section" id="heroCarouselSection">
         <div class="container">
             <div class="carousel-wrapper">
+                <!-- Slides Container -->
+                <div class="carousel-track" id="carouselTrack">
+                    <!-- Slide 1: Combo Fernet Branca -->
+                    <div class="carousel-slide active">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <span class="slide-badge">🔥 PROMO BOMBA DE LA SEMANA</span>
+                                <h2 class="slide-title">COMBO FERNET BRANCA 750ml<br>+ 2 COCA-COLA 2.25L</h2>
+                                <p class="slide-desc">El clásico infaltable de todas tus previas y juntadas al mejor precio de Lanús. ¡Listo para llevar y disfrutar bien frío!</p>
+                                <div class="slide-pricing">
+                                    <span class="slide-price">$ 26.000</span>
+                                    <span class="slide-regular-price">Antes: $ 29.500</span>
+                                    <span class="slide-savings">¡Ahorrás $ 3.500!</span>
+                                </div>
+                                <div class="slide-actions">
+                                    <button class="btn btn-primary" onclick="tiendaApp.addComboById(1)">
+                                        <i class="fa-solid fa-cart-plus"></i> Agregar Combo al Carrito
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="tiendaApp.filterByCategory('combos')">
+                                        Ver todos los combos
+                                    </button>
+                                </div>
+                            </div>
                             <div class="slide-image-box">
                                 <img src="uploads/combos/combo_fernet_coca.png" alt="Combo Fernet Branca + Coca Cola" class="slide-img">
                             </div>
@@ -682,6 +705,6 @@
     <div id="toastNotification" class="toast-notification"></div>
 
     <!-- Scripts de la Tienda -->
-    <script src="static/js/tienda.js?v=1793814064"></script>
+    <script src="static/js/tienda.js?v=1793815111"></script>
 </body>
 </html>

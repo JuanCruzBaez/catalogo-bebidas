@@ -70,15 +70,19 @@
                     <div>
                         <span class="text-[11px] font-black uppercase tracking-wider text-emerald-400">Paso 1</span>
                         <h2 class="text-base font-extrabold text-white">Conectar tu WhatsApp Web</h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Abre una ventana de Chrome exclusiva donde tu sesión queda guardada para siempre.</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Escaneá el código QR directamente acá abajo y tu sesión queda guardada.</p>
                     </div>
+                    <button x-show="waState !== 'closed'" @click="reloadWhatsApp()"
+                            class="text-[11px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                        <span>🔄 Recargar QR</span>
+                    </button>
                 </div>
 
                 <div class="flex flex-wrap gap-2.5 mt-3">
                     <button @click="openWhatsAppWeb()" :disabled="loadingBrowser"
                             class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition">
-                        <i data-lucide="external-link" class="w-4 h-4"></i>
-                        <span x-text="waState === 'logged_in' ? 'WhatsApp Web Conectado (Ver Ventana)' : '1. Abrir y Conectar WhatsApp Web'"></span>
+                        <i data-lucide="qr-code" class="w-4 h-4"></i>
+                        <span x-text="waState === 'logged_in' ? '🟢 WhatsApp Web Conectado' : (waState === 'qr_waiting' ? '🟡 Mostrando Código QR abajo (Escanealo con tu celu)' : '1. Abrir y Conectar WhatsApp Web')"></span>
                     </button>
 
                     <button @click="scrapeWhatsAppChats()" :disabled="scrapingChats || waState !== 'logged_in'"
@@ -87,6 +91,23 @@
                         <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': scrapingChats}"></i>
                         <span x-text="scrapingChats ? 'Extrayendo chats...' : 'Extraer Chats de WA Web'"></span>
                     </button>
+                </div>
+
+                <!-- VISOR EN VIVO DE WHATSAPP WEB Y CÓDIGO QR INTEGRADO -->
+                <div x-show="waState !== 'closed'" class="mt-4 bg-black border-2 rounded-xl overflow-hidden shadow-2xl"
+                     :class="waState === 'logged_in' ? 'border-emerald-600/70' : 'border-amber-500'">
+                    <div class="px-3 py-2 flex items-center justify-between text-xs font-bold"
+                         :class="waState === 'logged_in' ? 'bg-emerald-950/80 text-emerald-300' : 'bg-amber-950/90 text-amber-200'">
+                        <span x-text="waState === 'logged_in' ? '✅ Pantalla de WhatsApp Web en vivo (Conectado)' : '📱 Apuntá la cámara de WhatsApp (Dispositivos vinculados) a este código QR:'"></span>
+                        <button @click="showLiveScreen = !showLiveScreen" class="underline text-[11px]">
+                            <span x-text="showLiveScreen ? 'Ocultar visor' : 'Mostrar visor'"></span>
+                        </button>
+                    </div>
+                    <div x-show="showLiveScreen" class="bg-white flex items-center justify-center p-1">
+                        <img :src="'/api/wa/screenshot?t=' + screenTick"
+                             alt="Pantalla WhatsApp Web"
+                             class="w-full max-h-[430px] object-contain rounded">
+                    </div>
                 </div>
             </section>
 
@@ -139,7 +160,7 @@
                         </div>
                     </div>
 
-                    <textarea x-model="messageTemplate" rows="6"
+                    <textarea x-model="messageTemplate" rows="9"
                               class="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-xl p-3 text-xs sm:text-sm text-slate-100 focus:outline-none leading-relaxed"
                               placeholder="Escribí tu mensaje acá..."></textarea>
 
@@ -380,6 +401,8 @@
                 waState: 'closed',
                 loadingBrowser: false,
                 scrapingChats: false,
+                showLiveScreen: true,
+                screenTick: Date.now(),
                 isRunning: false,
                 isPaused: false,
                 totalToSend: 0,
@@ -397,7 +420,7 @@
                 selectedImage: 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png',
                 minDelay: 14,
                 maxDelay: 24,
-                messageTemplate: `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n✨ Vodka Skyy Cosmic 750ml + 3 Speed XL 473ml a solo $18.500\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n\n🛵 Envíos SIN CARGO en todo Lanús.\n👉 Pedinos por acá o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`,
+                messageTemplate: `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n💥 Mirá algunos de nuestros combos para hoy:\n• Vodka Skyy Cosmic / Saborizado + 3 Speed XL: $18.500\n• Vodka Smirnoff Saborizado + 3 Speed XL: $18.000\n• Ron Malibu 750ml + 2 Baggio 1L: $18.000\n• Fernet Branca 750ml + 2 Coca-Cola 2.5L: $26.500\n• Gin Aconcagua Azul + 2 Tónicas Cunnington 2.25L: $18.500\n• Gin Beefeater 750ml + 2 Tónicas Cunnington 2.25L: $24.000\n• Gancia 950ml + 2 Seven Up 2.25L: $14.500\n• Whisky JW Red Label 750ml + 3 Speed XL: $35.000\n• Pack Coca-Cola 2.5L (x6 botellas): $28.500\n\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n🛵 Envíos SIN CARGO en todo Lanús.\n\n👉 Pedinos respondiendo este mensaje o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`,
 
                 showManualModal: false,
                 manualText: '',
@@ -412,7 +435,7 @@
 
                 waStateLabel() {
                     if (this.waState === 'logged_in') return 'WhatsApp Web Conectado';
-                    if (this.waState === 'qr_waiting') return 'Escaneá el código QR en Chrome';
+                    if (this.waState === 'qr_waiting') return 'Escaneá el QR en el visor de abajo';
                     if (this.waState === 'loading') return 'Cargando WhatsApp Web...';
                     return 'WhatsApp Web Desconectado';
                 },
@@ -420,7 +443,7 @@
                 setTemplate(kind) {
                     if (kind === 'feriado') {
                         this.selectedImage = 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png';
-                        this.messageTemplate = `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n✨ Vodka Skyy Cosmic 750ml + 3 Speed XL 473ml a solo $18.500\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n\n🛵 Envíos SIN CARGO en todo Lanús.\n👉 Pedinos por acá o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`;
+                        this.messageTemplate = `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n💥 Mirá algunos de nuestros combos para hoy:\n• Vodka Skyy Cosmic / Saborizado + 3 Speed XL: $18.500\n• Vodka Smirnoff Saborizado + 3 Speed XL: $18.000\n• Ron Malibu 750ml + 2 Baggio 1L: $18.000\n• Fernet Branca 750ml + 2 Coca-Cola 2.5L: $26.500\n• Gin Aconcagua Azul + 2 Tónicas Cunnington 2.25L: $18.500\n• Gin Beefeater 750ml + 2 Tónicas Cunnington 2.25L: $24.000\n• Gancia 950ml + 2 Seven Up 2.25L: $14.500\n• Whisky JW Red Label 750ml + 3 Speed XL: $35.000\n• Pack Coca-Cola 2.5L (x6 botellas): $28.500\n\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n🛵 Envíos SIN CARGO en todo Lanús.\n\n👉 Pedinos respondiendo este mensaje o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`;
                     } else if (kind === 'cuentadni') {
                         this.selectedImage = 'historia_semana_01_cuenta_dni_medios_pago.png';
                         this.messageTemplate = `{saludo} {nombre}! 💚 ¡Aprovechá toda la semana el 20% de REINTEGRO pagando con Cuenta DNI en Bebidas 25 de Mayo!\n\n🍾 Combos, packs de gaseosas, cervezas y vinos al mejor precio de Lanús.\n🛵 Envíos SIN CARGO en Lanús.\n\n👇 Mirá todos los precios y armá tu pedido en nuestra web:\nhttps://bebidas25demayo.pages.dev`;
@@ -433,9 +456,13 @@
                 previewSaludo(c) {
                     const raw = (c.name || c.chat_title || '').trim();
                     if (!raw || /^[\+\d\s\-\(\)]+$/.test(raw)) return '¡Hola! ¿Cómo estás?';
-                    const first = raw.split(/\s+/)[0];
-                    if (first.length < 2 || /\d/.test(first)) return '¡Hola! ¿Cómo estás?';
-                    return `¡Hola ${first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()}!`;
+                    const cleaned = raw.replace(/[^\w\sáéíóúÁÉÍÓÚñÑüÜ]/g, ' ').trim();
+                    const ignore = ['cliente','clienta','clientes','pedido','pedidos','bebidas','kiosco','almacen','almacén','autoservicio','vecino','vecina','despensa','bar','evento','celular','cel','tel','whatsapp','contacto','sin','agendar'];
+                    for (const part of cleaned.split(/\s+/)) {
+                        if (part.length < 2 || /\d/.test(part) || ignore.includes(part.toLowerCase())) continue;
+                        return `¡Hola ${part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()}!`;
+                    }
+                    return '¡Hola! ¿Cómo estás?';
                 },
 
                 async pollStatus() {
@@ -451,6 +478,9 @@
                         this.failedCount = data.failed_count || 0;
                         this.statusText = data.status_text || '';
                         this.logs = data.logs || [];
+                        if (this.waState !== 'closed' && this.showLiveScreen) {
+                            this.screenTick = Date.now();
+                        }
                         if (prevRunning && !this.isRunning) {
                             this.fetchContacts();
                         }
@@ -494,10 +524,17 @@
                         const res = await fetch('/api/wa/open-browser', { method: 'POST' });
                         const data = await res.json();
                         if (!data.success) alert(data.message);
+                        this.showLiveScreen = true;
                         await this.pollStatus();
+                        this.screenTick = Date.now();
                     } finally {
                         this.loadingBrowser = false;
                     }
+                },
+
+                async reloadWhatsApp() {
+                    await fetch('/api/wa/reload', { method: 'POST' });
+                    setTimeout(() => { this.screenTick = Date.now(); }, 1500);
                 },
 
                 async scrapeWhatsAppChats() {

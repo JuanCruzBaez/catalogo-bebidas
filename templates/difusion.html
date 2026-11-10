@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-neutral-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatizador de Difusión WhatsApp - Bebidas 25 de Mayo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #404040; }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white" x-data="waBroadcasterApp()">
+
+    <!-- HEADER -->
+    <header class="bg-black/90 border-b border-neutral-800 sticky top-0 z-30 backdrop-blur">
+        <div class="max-w-[1550px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow">
+                    <i data-lucide="send" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-black tracking-wide uppercase text-white">Difusión Automática WhatsApp</h1>
+                        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Anti-Bloqueo</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Bebidas 25 de Mayo · Envía promos con imagen + texto personalizado sin copiar y pegar</p>
+                </div>
+            </div>
+
+            <!-- Estado de conexión con WhatsApp Web -->
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold"
+                     :class="{
+                        'bg-emerald-950/80 border-emerald-700 text-emerald-300': waState === 'logged_in',
+                        'bg-amber-950/80 border-amber-700 text-amber-300': waState === 'qr_waiting' || waState === 'loading',
+                        'bg-neutral-900 border-neutral-800 text-slate-400': waState !== 'logged_in' && waState !== 'qr_waiting' && waState !== 'loading'
+                     }">
+                    <span class="w-2.5 h-2.5 rounded-full"
+                          :class="{
+                            'bg-emerald-400 animate-pulse': waState === 'logged_in',
+                            'bg-amber-400 animate-ping': waState === 'qr_waiting' || waState === 'loading',
+                            'bg-slate-500': waState !== 'logged_in' && waState !== 'qr_waiting' && waState !== 'loading'
+                          }"></span>
+                    <span x-text="waStateLabel()"></span>
+                </div>
+
+                <a href="/admin" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Volver al Catálogo</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="max-w-[1550px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- COLUMNA IZQUIERDA (5 cols): CONEXIÓN + IMAGEN + MENSAJE + LANZADOR -->
+        <div class="lg:col-span-5 space-y-5">
+
+            <!-- PASO 1: CONECTAR WHATSAPP WEB -->
+            <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                        <span class="text-[11px] font-black uppercase tracking-wider text-emerald-400">Paso 1</span>
+                        <h2 class="text-base font-extrabold text-white">Conectar tu WhatsApp Web</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Abre una ventana de Chrome exclusiva donde tu sesión queda guardada para siempre.</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2.5 mt-3">
+                    <button @click="openWhatsAppWeb()" :disabled="loadingBrowser"
+                            class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition">
+                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                        <span x-text="waState === 'logged_in' ? 'WhatsApp Web Conectado (Ver Ventana)' : '1. Abrir y Conectar WhatsApp Web'"></span>
+                    </button>
+
+                    <button @click="scrapeWhatsAppChats()" :disabled="scrapingChats || waState !== 'logged_in'"
+                            class="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-extrabold text-xs sm:text-sm py-3 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition"
+                            title="Extrae automáticamente todos los contactos y números de tu lista de chats de WhatsApp Web">
+                        <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': scrapingChats}"></i>
+                        <span x-text="scrapingChats ? 'Extrayendo chats...' : 'Extraer Chats de WA Web'"></span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- PASO 2: ELEGIR IMAGEN Y MENSAJE -->
+            <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-black uppercase tracking-wider text-amber-400">Paso 2</span>
+                        <h2 class="text-base font-extrabold text-white">Imagen y Mensaje de la Promo</h2>
+                    </div>
+                    <label class="cursor-pointer bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-amber-300 transition">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                        <span>Subir otra imagen</span>
+                        <input type="file" accept="image/*" class="hidden" @change="uploadPromoImage($event)">
+                    </label>
+                </div>
+
+                <!-- Galería rápida de historias disponibles -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2">Elegí una placa promocional (o marcá "Solo texto"):</label>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto p-1">
+                        <!-- Opción sin imagen -->
+                        <div @click="selectedImage = ''"
+                             :class="selectedImage === '' ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-950/30' : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700'"
+                             class="cursor-pointer border rounded-xl p-2 flex flex-col items-center justify-center text-center h-28 transition">
+                            <i data-lucide="message-square" class="w-6 h-6 text-slate-400 mb-1"></i>
+                            <span class="text-[11px] font-bold text-slate-300">Solo Texto</span>
+                            <span class="text-[9px] text-slate-500">(Sin imagen)</span>
+                        </div>
+
+                        <template x-for="img in promoImages" :key="img.path">
+                            <div @click="selectedImage = img.path"
+                                 :class="selectedImage === img.path ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-950/30' : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700'"
+                                 class="cursor-pointer border rounded-xl p-1.5 flex flex-col items-center justify-between h-28 transition relative overflow-hidden group">
+                                <img :src="'/api/wa/image-preview?path=' + encodeURIComponent(img.path)" class="h-16 w-full object-contain rounded bg-black/50" :alt="img.name">
+                                <span class="text-[10px] font-semibold text-slate-300 truncate w-full text-center mt-1" x-text="img.label"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Plantillas rápidas de mensaje -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-xs font-bold text-slate-300">Plantillas rápidas:</label>
+                        <div class="flex gap-1.5">
+                            <button @click="setTemplate('feriado')" class="text-[11px] bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 px-2.5 py-1 rounded-lg font-bold transition">🔥 Promo Feriado 12 AM</button>
+                            <button @click="setTemplate('cuentadni')" class="text-[11px] bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 px-2.5 py-1 rounded-lg font-bold transition">💳 20% Cuenta DNI</button>
+                            <button @click="setTemplate('mayorista')" class="text-[11px] bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-200 px-2.5 py-1 rounded-lg font-bold transition">📦 Clientes / Negocios</button>
+                        </div>
+                    </div>
+
+                    <textarea x-model="messageTemplate" rows="6"
+                              class="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-xl p-3 text-xs sm:text-sm text-slate-100 focus:outline-none leading-relaxed"
+                              placeholder="Escribí tu mensaje acá..."></textarea>
+
+                    <div class="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>💡 Usá <code class="text-amber-300 font-bold">{saludo} {nombre}!</code> para que cada mensaje cambie automáticamente el saludo y ponga el nombre del contacto.</span>
+                    </div>
+                </div>
+
+                <!-- Configuración de pausa anti-bloqueo -->
+                <div class="bg-neutral-950 border border-neutral-800 rounded-xl p-3 flex items-center justify-between gap-4">
+                    <div>
+                        <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                            <span>Pausa Anti-Bloqueo entre envíos</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Tiempo de espera al azar entre un contacto y el siguiente (recomendado: 14 a 24 seg).</p>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <input type="number" x-model.number="minDelay" min="6" max="120" class="w-14 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-center text-xs font-bold text-white">
+                        <span class="text-xs text-slate-400">a</span>
+                        <input type="number" x-model.number="maxDelay" min="8" max="180" class="w-14 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-center text-xs font-bold text-white">
+                        <span class="text-xs text-slate-400">seg</span>
+                    </div>
+                </div>
+
+                <!-- BOTONES DE CONTROL DE CAMPAÑA -->
+                <div class="pt-1">
+                    <template x-if="!isRunning">
+                        <button @click="startCampaign()"
+                                class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm sm:text-base py-3.5 px-6 rounded-xl shadow-xl flex items-center justify-center gap-2 transition">
+                            <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                            <span>INICIAR DIFUSIÓN AUTOMÁTICA (<span x-text="selectedIds.length"></span> CONTACTOS)</span>
+                        </button>
+                    </template>
+
+                    <template x-if="isRunning">
+                        <div class="space-y-3">
+                            <!-- Barra de progreso -->
+                            <div class="bg-neutral-950 border border-emerald-800/60 rounded-xl p-3">
+                                <div class="flex justify-between text-xs font-bold mb-1.5">
+                                    <span class="text-emerald-300" x-text="statusText"></span>
+                                    <span class="text-white" x-text="sentCount + ' / ' + totalToSend + ' enviados'"></span>
+                                </div>
+                                <div class="w-full h-2.5 bg-neutral-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-emerald-500 transition-all duration-300"
+                                         :style="'width: ' + (totalToSend > 0 ? Math.round(((sentCount + failedCount) / totalToSend) * 100) : 0) + '%'"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2.5">
+                                <button @click="togglePause()"
+                                        class="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs sm:text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+                                    <span x-text="isPaused ? '▶️ Reanudar Difusión' : '⏸️ Pausar'"></span>
+                                </button>
+                                <button @click="stopCampaign()"
+                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+                                    <span>🛑 Detener</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
+            <!-- REGISTRO DE ACTIVIDAD EN VIVO -->
+            <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 shadow-xl">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">Registro de envíos en vivo</h3>
+                <div class="bg-black border border-neutral-800 rounded-xl p-3 h-40 overflow-y-auto font-mono text-xs space-y-1">
+                    <template x-if="logs.length === 0">
+                        <p class="text-slate-500">Sin actividad reciente. Conectá WhatsApp Web para empezar.</p>
+                    </template>
+                    <template x-for="(item, idx) in logs" :key="idx">
+                        <div class="flex gap-2" :class="{
+                            'text-emerald-400': item.level === 'success',
+                            'text-amber-300': item.level === 'warning',
+                            'text-red-400': item.level === 'error',
+                            'text-slate-300': item.level === 'info'
+                        }">
+                            <span class="text-slate-600 flex-shrink-0" x-text="'[' + item.time + ']'"></span>
+                            <span x-text="item.message"></span>
+                        </div>
+                    </template>
+                </div>
+            </section>
+        </div>
+
+        <!-- COLUMNA DERECHA (7 cols): AGENDA DE CONTACTOS (GOOGLE CONTACTS + CHATS WA WEB) -->
+        <div class="lg:col-span-7 flex flex-col space-y-5">
+
+            <!-- TARJETA DE IMPORTACIÓN DE CONTACTOS -->
+            <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                        <span class="text-[11px] font-black uppercase tracking-wider text-emerald-400">Tus Contactos</span>
+                        <h2 class="text-base font-extrabold text-white">Cargar desde Google Contacts o WhatsApp Web</h2>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Importar archivo CSV / VCF de Google Contacts -->
+                        <label class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold px-3.5 py-2.5 rounded-xl shadow flex items-center gap-1.5 transition">
+                            <i data-lucide="contact" class="w-4 h-4"></i>
+                            <span>Importar CSV / vCard (.vcf) de Google</span>
+                            <input type="file" accept=".csv,.vcf,.txt" class="hidden" @change="importContactsFile($event)">
+                        </label>
+
+                        <!-- Pegar lista o agregar manual -->
+                        <button @click="showManualModal = true"
+                                class="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition">
+                            <i data-lucide="user-plus" class="w-4 h-4 text-amber-400"></i>
+                            <span>Agregar / Pegar Números</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mini guía rápida para exportar desde Google Contacts -->
+                <div class="bg-neutral-950/90 border border-neutral-800/80 rounded-xl p-3 text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="space-y-0.5">
+                        <p class="font-bold text-amber-300">📱 ¿Cómo traer todos los contactos de tu celular (Google) en 10 segundos?</p>
+                        <p class="text-slate-400">1. Abrí <a href="https://contacts.google.com" target="_blank" class="text-blue-400 underline font-semibold">contacts.google.com</a> → Tocá <b>Exportar</b> arriba a la derecha → Elegí <b>CSV de Google</b> (o <b>vCard</b>) → Subí ese archivo acá con el botón azul.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TABLA Y FILTROS DE CONTACTOS -->
+            <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div class="flex items-center gap-2 flex-1 min-w-[220px]">
+                        <div class="relative flex-1">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3 top-2.5"></i>
+                            <input type="text" x-model="searchQuery" placeholder="Buscar por nombre o teléfono..."
+                                   class="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <select x-model="tagFilter" class="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+                            <option value="">Todas las listas</option>
+                            <option value="WhatsApp Web">Chats WhatsApp Web</option>
+                            <option value="Google Contacts">Google Contacts</option>
+                            <option value="General">Manual / General</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-xs">
+                        <button @click="selectAllFiltered()" class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-emerald-300 font-bold transition">
+                            Marcar todos (<span x-text="filteredContacts().length"></span>)
+                        </button>
+                        <button @click="selectedIds = []" class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-slate-300 font-semibold transition">
+                            Desmarcar
+                        </button>
+                        <button @click="deleteSelectedContacts()" x-show="selectedIds.length > 0"
+                                class="px-2.5 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 font-bold transition">
+                            Borrar seleccionados
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lista de contactos -->
+                <div class="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950 flex-1 max-h-[540px] overflow-y-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-neutral-900/90 text-slate-400 uppercase text-[10px] sticky top-0 z-10 border-b border-neutral-800">
+                            <tr>
+                                <th class="p-3 w-10 text-center">Enviar</th>
+                                <th class="p-3">Nombre / Chat</th>
+                                <th class="p-3">Teléfono WhatsApp</th>
+                                <th class="p-3">Origen</th>
+                                <th class="p-3">Último Envío</th>
+                                <th class="p-3 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-800/70">
+                            <template x-if="filteredContacts().length === 0">
+                                <tr>
+                                    <td colspan="6" class="p-8 text-center text-slate-500">
+                                        Todavía no cargaste contactos. Tocá <b>"Extraer Chats de WA Web"</b> o <b>"Importar CSV / vCard de Google"</b>.
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="c in filteredContacts()" :key="c.id">
+                                <tr class="hover:bg-neutral-900/60 transition" :class="selectedIds.includes(c.id) ? 'bg-emerald-950/15' : ''">
+                                    <td class="p-3 text-center">
+                                        <input type="checkbox" :value="c.id" x-model="selectedIds"
+                                               class="w-4 h-4 rounded accent-emerald-500 cursor-pointer">
+                                    </td>
+                                    <td class="p-3 font-bold text-white">
+                                        <div x-text="c.name || c.chat_title"></div>
+                                        <div class="text-[10px] text-emerald-400 font-normal" x-show="previewSaludo(c)" x-text="'Saludo: ' + previewSaludo(c)"></div>
+                                    </td>
+                                    <td class="p-3 font-mono text-slate-300">
+                                        <span x-text="c.phone ? ('+' + c.phone) : 'Por nombre de chat'"></span>
+                                    </td>
+                                    <td class="p-3">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-800 text-slate-300" x-text="c.tag"></span>
+                                    </td>
+                                    <td class="p-3">
+                                        <template x-if="c.last_sent_at">
+                                            <span class="text-[11px]" :class="c.last_status === 'ok' ? 'text-emerald-400' : 'text-red-400'"
+                                                  x-text="(c.last_status === 'ok' ? '✅ ' : '⚠️ ') + c.last_sent_at"></span>
+                                        </template>
+                                        <template x-if="!c.last_sent_at">
+                                            <span class="text-slate-600">Pendiente</span>
+                                        </template>
+                                    </td>
+                                    <td class="p-3 text-right">
+                                        <button @click="deleteSingleContact(c.id)" class="text-slate-500 hover:text-red-400 px-2 py-1" title="Eliminar contacto">
+                                            ✕
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- MODAL AGREGAR / PEGAR CONTACTOS MANUALMENTE -->
+    <div x-show="showManualModal" x-cloak class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showManualModal = false" class="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-black text-white">Agregar o Pegar Lista de Contactos</h3>
+                <button @click="showManualModal = false" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <p class="text-xs text-slate-400">
+                Pegá un contacto por línea. Podés escribir <b>Nombre, Teléfono</b> (ej: <code>Juan Perez, 11 2345-6789</code>) o directamente solo el número de teléfono:
+            </p>
+            <textarea x-model="manualText" rows="7"
+                      placeholder="Martín Cliente, 11 4567-8901&#10;Lucas Kiosco, 11 9876-5432&#10;11 3344-5566"
+                      class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-emerald-500"></textarea>
+            <div class="flex justify-end gap-2">
+                <button @click="showManualModal = false" class="px-4 py-2 rounded-xl bg-neutral-800 text-xs font-bold text-slate-300">Cancelar</button>
+                <button @click="saveManualContacts()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white">Guardar Contactos</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function waBroadcasterApp() {
+            return {
+                waState: 'closed',
+                loadingBrowser: false,
+                scrapingChats: false,
+                isRunning: false,
+                isPaused: false,
+                totalToSend: 0,
+                sentCount: 0,
+                failedCount: 0,
+                statusText: 'Listo',
+                logs: [],
+
+                contacts: [],
+                selectedIds: [],
+                searchQuery: '',
+                tagFilter: '',
+
+                promoImages: [],
+                selectedImage: 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png',
+                minDelay: 14,
+                maxDelay: 24,
+                messageTemplate: `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n✨ Vodka Skyy Cosmic 750ml + 3 Speed XL 473ml a solo $18.500\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n\n🛵 Envíos SIN CARGO en todo Lanús.\n👉 Pedinos por acá o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`,
+
+                showManualModal: false,
+                manualText: '',
+
+                init() {
+                    this.fetchContacts();
+                    this.fetchPromoImages();
+                    this.pollStatus();
+                    setInterval(() => this.pollStatus(), 2000);
+                    setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+                },
+
+                waStateLabel() {
+                    if (this.waState === 'logged_in') return 'WhatsApp Web Conectado';
+                    if (this.waState === 'qr_waiting') return 'Escaneá el código QR en Chrome';
+                    if (this.waState === 'loading') return 'Cargando WhatsApp Web...';
+                    return 'WhatsApp Web Desconectado';
+                },
+
+                setTemplate(kind) {
+                    if (kind === 'feriado') {
+                        this.selectedImage = 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png';
+                        this.messageTemplate = `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n✨ Vodka Skyy Cosmic 750ml + 3 Speed XL 473ml a solo $18.500\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n\n🛵 Envíos SIN CARGO en todo Lanús.\n👉 Pedinos por acá o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`;
+                    } else if (kind === 'cuentadni') {
+                        this.selectedImage = 'historia_semana_01_cuenta_dni_medios_pago.png';
+                        this.messageTemplate = `{saludo} {nombre}! 💚 ¡Aprovechá toda la semana el 20% de REINTEGRO pagando con Cuenta DNI en Bebidas 25 de Mayo!\n\n🍾 Combos, packs de gaseosas, cervezas y vinos al mejor precio de Lanús.\n🛵 Envíos SIN CARGO en Lanús.\n\n👇 Mirá todos los precios y armá tu pedido en nuestra web:\nhttps://bebidas25demayo.pages.dev`;
+                    } else if (kind === 'mayorista') {
+                        this.selectedImage = 'historia_semana_02_packs_gaseosas.png';
+                        this.messageTemplate = `{saludo} {nombre}! 📦 Te comparto las promos actualizadas de esta semana en Bebidas 25 de Mayo.\n\n🔥 Pack Coca-Cola 2.5L (6 bot.): $28.500\n💳 Recordá que tenés 20% de reintegro con Cuenta DNI y precios mayoristas llevando desde $100.000.\n\n🛵 Envío sin cargo en Lanús:\nhttps://bebidas25demayo.pages.dev`;
+                    }
+                },
+
+                previewSaludo(c) {
+                    const raw = (c.name || c.chat_title || '').trim();
+                    if (!raw || /^[\+\d\s\-\(\)]+$/.test(raw)) return '¡Hola! ¿Cómo estás?';
+                    const first = raw.split(/\s+/)[0];
+                    if (first.length < 2 || /\d/.test(first)) return '¡Hola! ¿Cómo estás?';
+                    return `¡Hola ${first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()}!`;
+                },
+
+                async pollStatus() {
+                    try {
+                        const res = await fetch('/api/wa/status');
+                        const data = await res.json();
+                        const prevRunning = this.isRunning;
+                        this.waState = data.wa_state || 'closed';
+                        this.isRunning = !!data.is_running;
+                        this.isPaused = !!data.is_paused;
+                        this.totalToSend = data.total_to_send || 0;
+                        this.sentCount = data.sent_count || 0;
+                        this.failedCount = data.failed_count || 0;
+                        this.statusText = data.status_text || '';
+                        this.logs = data.logs || [];
+                        if (prevRunning && !this.isRunning) {
+                            this.fetchContacts();
+                        }
+                    } catch (e) {}
+                },
+
+                async fetchContacts() {
+                    const res = await fetch('/api/wa/contacts');
+                    const data = await res.json();
+                    this.contacts = data.contacts || [];
+                    if (this.selectedIds.length === 0) {
+                        this.selectedIds = this.contacts.filter(c => c.active).map(c => c.id);
+                    }
+                },
+
+                async fetchPromoImages() {
+                    const res = await fetch('/api/wa/promo-images');
+                    const data = await res.json();
+                    this.promoImages = data.images || [];
+                },
+
+                filteredContacts() {
+                    const q = this.searchQuery.trim().toLowerCase();
+                    return this.contacts.filter(c => {
+                        if (this.tagFilter && c.tag !== this.tagFilter) return false;
+                        if (!q) return true;
+                        return (c.name || '').toLowerCase().includes(q) ||
+                               (c.phone || '').toLowerCase().includes(q) ||
+                               (c.chat_title || '').toLowerCase().includes(q);
+                    });
+                },
+
+                selectAllFiltered() {
+                    const ids = this.filteredContacts().map(c => c.id);
+                    this.selectedIds = Array.from(new Set([...this.selectedIds, ...ids]));
+                },
+
+                async openWhatsAppWeb() {
+                    this.loadingBrowser = true;
+                    try {
+                        const res = await fetch('/api/wa/open-browser', { method: 'POST' });
+                        const data = await res.json();
+                        if (!data.success) alert(data.message);
+                        await this.pollStatus();
+                    } finally {
+                        this.loadingBrowser = false;
+                    }
+                },
+
+                async scrapeWhatsAppChats() {
+                    this.scrapingChats = true;
+                    try {
+                        const res = await fetch('/api/wa/scrape-chats', { method: 'POST' });
+                        const data = await res.json();
+                        alert(data.message);
+                        await this.fetchContacts();
+                    } finally {
+                        this.scrapingChats = false;
+                    }
+                },
+
+                async importContactsFile(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch('/api/wa/import-file', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    alert(data.message || 'Contactos importados');
+                    event.target.value = '';
+                    await this.fetchContacts();
+                    this.selectAllFiltered();
+                },
+
+                async saveManualContacts() {
+                    if (!this.manualText.trim()) return;
+                    const res = await fetch('/api/wa/import-text', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: this.manualText })
+                    });
+                    const data = await res.json();
+                    this.manualText = '';
+                    this.showManualModal = false;
+                    alert(data.message);
+                    await this.fetchContacts();
+                    this.selectAllFiltered();
+                },
+
+                async uploadPromoImage(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch('/api/wa/upload-promo-image', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.success) {
+                        await this.fetchPromoImages();
+                        this.selectedImage = data.path;
+                    }
+                    event.target.value = '';
+                },
+
+                async deleteSingleContact(id) {
+                    await fetch('/api/wa/contacts/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: [id] })
+                    });
+                    this.selectedIds = this.selectedIds.filter(x => x !== id);
+                    await this.fetchContacts();
+                },
+
+                async deleteSelectedContacts() {
+                    if (!confirm(`¿Seguro que querés eliminar ${this.selectedIds.length} contactos de la lista?`)) return;
+                    await fetch('/api/wa/contacts/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: this.selectedIds })
+                    });
+                    this.selectedIds = [];
+                    await this.fetchContacts();
+                },
+
+                async startCampaign() {
+                    if (this.selectedIds.length === 0) {
+                        alert('Seleccioná al menos un contacto en la tabla de la derecha.');
+                        return;
+                    }
+                    const res = await fetch('/api/wa/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contact_ids: this.selectedIds,
+                            message_template: this.messageTemplate,
+                            image_path: this.selectedImage,
+                            min_delay: this.minDelay,
+                            max_delay: this.maxDelay
+                        })
+                    });
+                    const data = await res.json();
+                    if (!data.success) {
+                        alert(data.message);
+                    }
+                    await this.pollStatus();
+                },
+
+                async togglePause() {
+                    await fetch('/api/wa/pause', { method: 'POST' });
+                    await this.pollStatus();
+                },
+
+                async stopCampaign() {
+                    await fetch('/api/wa/stop', { method: 'POST' });
+                    await this.pollStatus();
+                }
+            };
+        }
+    </script>
+</body>
+</html>
+

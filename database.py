@@ -254,13 +254,13 @@ def init_db():
     if cursor.fetchone()[0] == 0:
         default_combos = [
             (
-                "Combo Fernet Branca + 2 Coca-Cola 2.25L",
-                "1 Fernet Branca 750ml + 2 Coca-Cola 2.25L descartables",
+                "Combo Fernet Branca + 2 Coca-Cola 2.5L",
+                "1 Fernet Branca 750ml + 2 Coca-Cola 2.5L descartables",
                 "🔥 PROMO BOMBA",
-                26000.0,
-                29500.0,
+                26500.0,
+                30000.0,
                 "uploads/combos/combo_fernet_coca.png",
-                json.dumps([{"name": "Fernet Branca 750ml", "qty": 1}, {"name": "Coca-Cola 2.25L", "qty": 2}]),
+                json.dumps([{"product_id": 5, "name": "Fernet Branca 750ml", "qty": 1}, {"product_id": 306, "name": "Coca-Cola 2.5L", "qty": 2}]),
                 1,
                 1
             ),
@@ -276,13 +276,13 @@ def init_db():
                 2
             ),
             (
-                "Combo JW Red Label + 3 Speed XL",
-                "1 Whisky Johnnie Walker Red Label 1L + 3 Speed Unlimited XL 500ml",
+                "Combo Whisky JW Red Label 750ml + 3 Speed XL",
+                "1 Whisky Johnnie Walker Red Label 750ml + 3 Speed Unlimited XL 500ml",
                 "⚡ COMBO FIESTA",
-                37000.0,
-                41500.0,
+                35000.0,
+                39500.0,
                 "uploads/combos/combo_jw_speed.png",
-                json.dumps([{"name": "Whisky JW Red Label 1L", "qty": 1}, {"name": "Speed XL 500ml", "qty": 3}]),
+                json.dumps([{"product_id": 323, "name": "Whisky JW Red Label 750ml", "qty": 1}, {"product_id": 8, "name": "Speed XL 500ml", "qty": 3}]),
                 1,
                 3
             ),
@@ -702,7 +702,7 @@ def get_public_categories():
 COMBO_PRODUCT_MAPPING = {
     1: 173,  # Fernet Branca + Coca
     2: 175,  # Absolut + Speed
-    3: 177,  # JW Red + Speed
+    3: 324,  # JW Red 750ml + 3 Speed XL
     4: 172,  # Skyy Saborizado + Speed
     6: 180,  # Corona Botella x6
     7: 179,  # Heineken Latones x6
@@ -728,7 +728,209 @@ COMBO_PRODUCT_MAPPING = {
     27: 197, # Schneider x6
     28: 198, # Warsteiner x6
     29: 275, # Smirnoff Saborizado + Speed
+    30: 284, # Goyeneche IPA x6
+    31: 285, # Goyeneche APA x6
+    32: 286, # Goyeneche Golden x6
+    33: 287, # Goyeneche Honey x6
+    34: 288, # Goyeneche Scottish x6
+    35: 289, # Gin Beefeater + 2 Tonica Cunnington
+    36: 290, # Gin Beefeater Blood Orange + 2 Tonica Cunnington
+    37: 291, # Gin Aconcagua Azul + 2 Tonica Cunnington
+    38: 292, # Gin Aconcagua Rosa o Blanco + 2 Tonica Cunnington
+    39: 293, # Jack Daniels Honey + 3 Speed XL
+    40: 294, # Michelob Ultra x6
+    41: 295, # Ron Malibu + 2 Baggio Naranja 1L
+    42: 296, # Dr Lemon Green Apple x6
+    43: 297, # Dr Lemon Red Berries x6
+    44: 298, # Dr Lemon Limon x6
+    45: 299, # Pepsi 500ml x6
+    46: 300, # Vino Colon Durazno x6
+    47: 301, # Vodka Skyy Jungle x3
+    48: 302, # Vodka Skyy Jungle x6
+    49: 307, # Gancia + 2 Seven Up 2.25L
+    50: 308, # Ron Bacardi Carta Oro + 2 Coca-Cola 2.5L
+    51: 309, # Whisky Jameson 1L + 3 Speed XL
+    52: 310, # Combo Pack Goyeneche Surtido x5 Botellas
+    53: 311, # Combo Cinzano Rosso + Soda Manaos 2L
+    54: 312, # Combo Vino Viñas de Balbo Magnum + 2 Cunnington Pomelo
+    55: 313, # Combo Vino Viñas de Balbo Magnum + 2 Manaos Pomelo
+    56: 331, # Combo Ron Malibu + 2 Baggio Multifruta 1L
+    57: 336, # Combo Vodka Skyy Cosmic + 3 Speed XL
+    58: 337, # Combo Gin Beefeater Pink + 2 Tonica Cunnington
+    59: 338, # Combo Gin Beefeater Blackberry + 2 Tonica Cunnington
+    60: 339, # Combo Gin Gordon's Pink + 2 Tonica Cunnington
+    61: 340, # Combo Gin Heredero Lemon & Ginger + 2 Tonica Cunnington
+    62: 341, # Combo Gin Heredero Pink + 2 Tonica Cunnington
 }
+
+# Mapeo completo de productos combo a sus componentes individuales
+COMBO_COMPONENTS_MAP = {
+    173: [{"product_id": 5, "qty": 1, "name": "Fernet Branca 750ml"}, {"product_id": 306, "qty": 2, "name": "Coca-Cola 2.5L"}],
+    273: [{"product_id": 5, "qty": 1, "name": "Fernet Branca 750ml"}, {"product_id": 7, "qty": 2, "name": "Coca-Cola 2.25L"}],
+    175: [{"product_candidates": [122, 64, 63, 123, 125, 124], "qty": 1, "name": "Vodka Absolut Saborizado 700ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    177: [{"product_id": 16, "qty": 1, "name": "Whisky JW Red Label 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    324: [{"product_id": 323, "qty": 1, "name": "Whisky JW Red Label 750ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    172: [{"product_candidates": [126, 15, 62, 127], "qty": 1, "name": "Vodka Skyy Saborizado 700ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    180: [{"product_id": 55, "qty": 6, "name": "Cerveza Corona Botella 710ml"}],
+    179: [{"product_id": 2, "qty": 6, "name": "Cerveza Heineken Latón 710ml"}],
+    174: [{"product_id": 165, "qty": 1, "name": "Vodka Skyy Jungle 700ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    176: [{"product_id": 161, "qty": 1, "name": "Jaggermeister 700ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    178: [{"product_id": 306, "qty": 6, "name": "Coca-Cola 2.5L"}],
+    274: [{"product_id": 7, "qty": 8, "name": "Coca-Cola 2.25L"}],
+    181: [{"product_id": 88, "qty": 1, "name": "Whiskey Jack Daniel's No.7 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    182: [{"product_id": 162, "qty": 1, "name": "Whiskey Jack Daniel's Apple 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    183: [{"product_id": 86, "qty": 1, "name": "Whisky JW Black Label 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    184: [{"product_candidates": [74, 72, 73], "qty": 1, "name": "Champagne Federico de Alvear 750ml"}, {"product_id": 8, "qty": 2, "name": "Speed XL 500ml"}],
+    185: [{"product_id": 30, "qty": 6, "name": "Cerveza Imperial Lager Lata 473ml"}],
+    186: [{"product_id": 28, "qty": 6, "name": "Cerveza Imperial APA Lata 473ml"}],
+    187: [{"product_id": 3, "qty": 6, "name": "Cerveza Corona Lata 473ml"}],
+    188: [{"product_id": 1, "qty": 6, "name": "Cerveza Heineken Lata 473ml"}],
+    189: [{"product_id": 35, "qty": 6, "name": "Cerveza Miller Lata 473ml"}],
+    190: [{"product_id": 18, "qty": 6, "name": "Cerveza Quilmes Lata 473ml"}],
+    191: [{"product_id": 17, "qty": 6, "name": "Cerveza Quilmes Latón 710ml"}],
+    192: [{"product_id": 19, "qty": 6, "name": "Cerveza Quilmes Stout Lata 473ml"}],
+    193: [{"product_id": 4, "qty": 6, "name": "Cerveza Stella Artois Botella 710ml"}],
+    194: [{"product_id": 21, "qty": 6, "name": "Cerveza Stella Artois Lata 473ml"}],
+    195: [{"product_id": 22, "qty": 6, "name": "Cerveza Stella Artois Noire Lata 473ml"}],
+    196: [{"product_id": 20, "qty": 6, "name": "Cerveza Stella Artois Latón 710ml"}],
+    197: [{"product_id": 24, "qty": 6, "name": "Cerveza Schneider Lata 473ml"}],
+    198: [{"product_id": 25, "qty": 6, "name": "Cerveza Warsteiner Lata 473ml"}],
+    275: [{"product_candidates": [14, 61], "qty": 1, "name": "Vodka Smirnoff Saborizado 700ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    284: [{"product_id": 250, "qty": 6, "name": "Cerveza Goyeneche IPA Botella 500ml"}],
+    285: [{"product_id": 282, "qty": 6, "name": "Cerveza Goyeneche APA Botella 500ml"}],
+    286: [{"product_id": 260, "qty": 6, "name": "Cerveza Goyeneche Golden Botella 500ml"}],
+    287: [{"product_id": 259, "qty": 6, "name": "Cerveza Goyeneche Honey Botella 500ml"}],
+    288: [{"product_id": 261, "qty": 6, "name": "Cerveza Goyeneche Scottish Botella 500ml"}],
+    289: [{"product_id": 67, "qty": 1, "name": "Gin Beefeater 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    290: [{"product_id": 68, "qty": 1, "name": "Gin Beefeater Blood Orange 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    291: [{"product_id": 57, "qty": 1, "name": "Gin Aconcagua Azul 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    292: [{"product_candidates": [59, 58], "qty": 1, "name": "Gin Aconcagua Rosa o Blanco 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    293: [{"product_id": 89, "qty": 1, "name": "Whiskey Jack Daniel's Honey 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    294: [{"product_id": 34, "qty": 6, "name": "Cerveza Michelob Ultra Lata 473ml"}],
+    295: [{"product_id": 54, "qty": 1, "name": "Ron Malibu 750ml"}, {"product_id": 148, "qty": 2, "name": "Baggio Naranja 1L"}],
+    296: [{"product_id": 42, "qty": 6, "name": "Dr Lemon Green Apple Lata 473ml"}],
+    297: [{"product_id": 41, "qty": 6, "name": "Dr Lemon Red Berries Lata 473ml"}],
+    298: [{"product_id": 11, "qty": 6, "name": "Dr Lemon Limón Lata 473ml"}],
+    299: [{"product_id": 96, "qty": 6, "name": "Pepsi Botella 500ml"}],
+    300: [{"product_id": 166, "qty": 6, "name": "Vino Colón Durazno 750ml"}],
+    301: [{"product_id": 165, "qty": 3, "name": "Vodka Skyy Jungle 700ml"}],
+    302: [{"product_id": 165, "qty": 6, "name": "Vodka Skyy Jungle 700ml"}],
+    307: [{"product_id": 204, "qty": 1, "name": "Gancia 950ml"}, {"product_id": 97, "qty": 2, "name": "Seven Up 2.25L"}],
+    308: [{"product_id": 50, "qty": 1, "name": "Ron Bacardi Oro 750ml"}, {"product_id": 306, "qty": 2, "name": "Coca-Cola 2.5L"}],
+    309: [{"product_id": 199, "qty": 1, "name": "Whisky Jameson 1L"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    310: [
+        {"product_id": 250, "qty": 1, "name": "Cerveza Goyeneche IPA 500ml"},
+        {"product_id": 282, "qty": 1, "name": "Cerveza Goyeneche APA 500ml"},
+        {"product_id": 261, "qty": 1, "name": "Cerveza Goyeneche Scottish 500ml"},
+        {"product_id": 259, "qty": 1, "name": "Cerveza Goyeneche Honey 500ml"},
+        {"product_id": 260, "qty": 1, "name": "Cerveza Goyeneche Golden 500ml"}
+    ],
+    311: [{"product_id": 305, "qty": 1, "name": "Cinzano Rosso 750ml"}, {"product_id": 144, "qty": 1, "name": "Soda Manaos 2L"}],
+    312: [{"product_id": 155, "qty": 1, "name": "Vino Tinto Viñas de Balbo 1.125L"}, {"product_id": 212, "qty": 2, "name": "Cunnington Pomelo 2.25L"}],
+    313: [{"product_id": 155, "qty": 1, "name": "Vino Tinto Viñas de Balbo 1.125L"}, {"product_id": 153, "qty": 2, "name": "Manaos Pomelo 2.25L"}],
+    331: [{"product_id": 54, "qty": 1, "name": "Ron Malibu 750ml"}, {"product_id": 317, "qty": 2, "name": "Baggio Multifruta 1L"}],
+    336: [{"product_id": 314, "qty": 1, "name": "Vodka Skyy Cosmic 750ml"}, {"product_id": 8, "qty": 3, "name": "Speed XL 500ml"}],
+    337: [{"product_id": 335, "qty": 1, "name": "Gin Beefeater Pink 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    338: [{"product_id": 66, "qty": 1, "name": "Gin Beefeater Blackberry 750ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    339: [{"product_id": 332, "qty": 1, "name": "Gin Gordon's Pink 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    340: [{"product_id": 70, "qty": 1, "name": "Gin Heredero Lemon y Ginger 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    341: [{"product_id": 69, "qty": 1, "name": "Gin Heredero Grapefruit 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+}
+
+def get_combo_components(product_id, cursor=None):
+    """
+    Retorna la lista de componentes individuales (producto real y cantidad)
+    que componen un combo vendido, para descontar o restituir stock automáticamente.
+    """
+    should_close = False
+    if cursor is None:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        should_close = True
+
+    try:
+        raw_components = COMBO_COMPONENTS_MAP.get(product_id)
+        
+        # Si no está en el mapa estático por product_id, buscar por combo_id o por items_json
+        if not raw_components:
+            for c_id, p_id in COMBO_PRODUCT_MAPPING.items():
+                if p_id == product_id:
+                    cursor.execute("SELECT items_json FROM combos WHERE id = ?", (c_id,))
+                    row = cursor.fetchone()
+                    if row and row['items_json']:
+                        try:
+                            raw_components = json.loads(row['items_json'])
+                        except Exception:
+                            pass
+                    break
+
+        if not raw_components:
+            return []
+
+        resolved = []
+        for comp in raw_components:
+            p_id = comp.get('product_id')
+            qty = comp.get('qty', 1)
+            name = comp.get('name', '')
+            
+            # Si tiene lista de candidatos (por ejemplo Absolut saborizados, Skyy saborizados)
+            candidates = comp.get('product_candidates', [])
+            if not p_id and candidates:
+                # Elegir el candidato con mayor stock disponible (> 0)
+                placeholders = ','.join('?' for _ in candidates)
+                cursor.execute(f"SELECT id, stock FROM products WHERE id IN ({placeholders}) ORDER BY stock DESC, id ASC", tuple(candidates))
+                cand_rows = cursor.fetchall()
+                if cand_rows:
+                    p_id = cand_rows[0]['id']
+                else:
+                    p_id = candidates[0]
+            
+            if p_id:
+                resolved.append({
+                    'product_id': p_id,
+                    'qty': qty,
+                    'name': name
+                })
+        return resolved
+    finally:
+        if should_close:
+            conn.close()
+
+def deduct_combo_components_stock(cursor, product_id, sold_quantity, item_context=None):
+    """
+    Resta automáticamente el stock de los productos individuales que forman parte de un combo.
+    """
+    try:
+        components = get_combo_components(product_id, cursor=cursor)
+        for comp in components:
+            comp_id = comp['product_id']
+            qty_per_combo = comp.get('qty', 1)
+            total_deduct = qty_per_combo * sold_quantity
+            cursor.execute("""
+                UPDATE products 
+                SET stock = MAX(0, stock - ?) 
+                WHERE id = ?
+            """, (total_deduct, comp_id))
+    except Exception as e:
+        print(f"[COMBO DEDUCTION ERROR] Error al descontar componentes de combo prod_id={product_id}: {e}")
+
+def restore_combo_components_stock(cursor, product_id, cancelled_quantity):
+    """
+    Restituye automáticamente el stock de los productos individuales que forman parte de un combo cuando se anula una venta.
+    """
+    try:
+        components = get_combo_components(product_id, cursor=cursor)
+        for comp in components:
+            comp_id = comp['product_id']
+            qty_per_combo = comp.get('qty', 1)
+            total_restore = qty_per_combo * cancelled_quantity
+            cursor.execute("""
+                UPDATE products 
+                SET stock = stock + ? 
+                WHERE id = ?
+            """, (total_restore, comp_id))
+    except Exception as e:
+        print(f"[COMBO RESTORE ERROR] Error al restituir componentes de combo prod_id={product_id}: {e}")
 
 def sync_combos_from_products(cursor=None):
     """
@@ -1251,6 +1453,9 @@ def create_sale(sale_data, items_data):
             WHERE id = ?
             """, (it['quantity'], it['product_id']))
 
+            # Restar stock automáticamente de los productos individuales si es un combo
+            deduct_combo_components_stock(cursor, it['product_id'], it['quantity'], it)
+
         conn.commit()
         return sale_id
     except Exception as e:
@@ -1513,6 +1718,9 @@ def cancel_sale(sale_id, reason="Anulada por el usuario"):
             SET stock = stock + ? 
             WHERE id = ?
             """, (item['quantity'], item['product_id']))
+
+            # Restituir stock automáticamente de los componentes individuales si es un combo
+            restore_combo_components_stock(cursor, item['product_id'], item['quantity'])
 
         # Marcar la venta como anulada permanentemente con timestamp y motivo
         cursor.execute("""
@@ -1921,6 +2129,7 @@ def apply_sync_payload(payload, sync_catalog=True):
             for it_p_id, it_qty in cursor.fetchall():
                 if it_p_id and it_qty:
                     cursor.execute('UPDATE products SET stock = stock + ? WHERE id = ?', (it_qty, it_p_id))
+                    restore_combo_components_stock(cursor, it_p_id, it_qty)
 
         cursor.execute('''
             INSERT INTO sales (

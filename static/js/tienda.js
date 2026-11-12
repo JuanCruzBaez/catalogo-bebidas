@@ -463,7 +463,7 @@
                     </div>
                     <div class="combo-content">
                         <h3 class="combo-name">${c.name}</h3>
-                        ${c.description ? `<p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">${c.description}</p>` : ''}
+                        ${c.description ? `<p class="combo-desc-text" style="font-size: 11px; color: #64748b; margin-bottom: 6px; line-height: 1.25;">${c.description}</p>` : ''}
                         <ul class="combo-items-list">
                             ${itemsList}
                         </ul>

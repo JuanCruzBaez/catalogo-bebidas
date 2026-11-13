@@ -208,7 +208,7 @@
                         placeholder="Escribí tu mensaje acá..."></textarea>
 
                     <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                        <span class="text-slate-400">💡 Usá <code class="text-amber-300 font-bold">{saludo} {nombre}!</code> para saludo personalizado por contacto.</span>
+                        <span class="text-slate-400">💡 Usá <code class="text-amber-300 font-bold">{saludo}</code> para saludo automático por defecto.</span>
                         <button @click="saveCurrentAsTemplate()"
                             class="bg-neutral-800 hover:bg-emerald-950/80 border border-neutral-700 hover:border-emerald-600 text-emerald-300 px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5">
                             <i data-lucide="save" class="w-3.5 h-3.5"></i>
@@ -416,8 +416,6 @@
                                     </td>
                                     <td class="p-3 font-bold text-white">
                                         <div x-text="c.name || c.chat_title"></div>
-                                        <div class="text-[10px] text-emerald-400 font-normal" x-show="previewSaludo(c)"
-                                            x-text="'Saludo: ' + previewSaludo(c)"></div>
                                     </td>
                                     <td class="p-3 font-mono text-slate-300">
                                         <span x-text="c.phone ? ('+' + c.phone) : 'Por nombre de chat'"></span>
@@ -486,7 +484,7 @@
                     <textarea x-model="templateForm.message_text" rows="8"
                         placeholder="Escribí el texto acá..."
                         class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 font-sans leading-relaxed"></textarea>
-                    <p class="text-[11px] text-slate-500 mt-1">Podés usar <code>{saludo}</code> y <code>{nombre}</code>.</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Podés usar <code>{saludo}</code> para saludo automático.</p>
                 </div>
             </div>
 
@@ -558,7 +556,7 @@
                 selectedImage: 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png',
                 minDelay: 14,
                 maxDelay: 24,
-                messageTemplate: `{saludo} {nombre}! 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n💥 Mirá algunos de nuestros combos para hoy:\n• Vodka Skyy Cosmic / Saborizado + 3 Speed XL: $18.500\n• Vodka Smirnoff Saborizado + 3 Speed XL: $18.000\n• Ron Malibu 750ml + 2 Baggio 1L: $18.000\n• Fernet Branca 750ml + 2 Coca-Cola 2.5L: $26.500\n• Gin Aconcagua Azul + 2 Tónicas Cunnington 2.25L: $18.500\n• Gin Beefeater 750ml + 2 Tónicas Cunnington 2.25L: $24.000\n• Gancia 950ml + 2 Seven Up 2.25L: $14.500\n• Whisky JW Red Label 750ml + 3 Speed XL: $35.000\n• Pack Coca-Cola 2.5L (x6 botellas): $28.500\n\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n🛵 Envíos SIN CARGO en todo Lanús.\n\n👉 Pedinos respondiendo este mensaje o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`,
+                messageTemplate: `{saludo} 🔥 ¡ESPECIAL FERIADO en Bebidas 25 de Mayo!\nHoy tomamos pedidos HASTA LAS 12 (00:00 hs) 🕛🍾\n\n💥 Mirá algunos de nuestros combos para hoy:\n• Vodka Skyy Cosmic / Saborizado + 3 Speed XL: $18.500\n• Vodka Smirnoff Saborizado + 3 Speed XL: $18.000\n• Ron Malibu 750ml + 2 Baggio 1L: $18.000\n• Fernet Branca 750ml + 2 Coca-Cola 2.5L: $26.500\n• Gin Aconcagua Azul + 2 Tónicas Cunnington 2.25L: $18.500\n• Gin Beefeater 750ml + 2 Tónicas Cunnington 2.25L: $24.000\n• Gancia 950ml + 2 Seven Up 2.25L: $14.500\n• Whisky JW Red Label 750ml + 3 Speed XL: $35.000\n• Pack Coca-Cola 2.5L (x6 botellas): $28.500\n\n💳 ¡Además aprovechá el 20% de REINTEGRO pagando con Cuenta DNI!\n🛵 Envíos SIN CARGO en todo Lanús.\n\n👉 Pedinos respondiendo este mensaje o armá tu carrito en:\nhttps://bebidas25demayo.pages.dev`,
 
                 templates: [],
                 activeTemplateId: 'feriado',

@@ -1438,6 +1438,12 @@ def api_wa_stop():
     eng = whatsapp_broadcaster.broadcaster_engine
     eng.stop_requested = True
     eng.is_paused = False
+    eng.status_text = '🛑 Deteniendo difusión...'
+    eng.current_contact = ''
+    try:
+        eng._dismiss_open_dialogs()
+    except Exception:
+        pass
     return jsonify({"success": True})
 
 # ----------------- INICIALIZACIÓN DE LA APLICACIÓN -----------------

@@ -724,9 +724,8 @@
             let stockBadge = '';
             if (p.is_out_of_stock) {
                 stockBadge = '<span class="out-of-stock-badge">Agotado</span>';
-            } else if (p.is_low_stock && p.low_stock_count) {
-                const text = p.low_stock_count === 1 ? '¡Última!' : `¡Últimas ${p.low_stock_count}!`;
-                stockBadge = `<span class="low-stock-badge"><i class="fa-solid fa-fire"></i> ${text}</span>`;
+            } else if (p.is_low_stock && p.low_stock_count === 1) {
+                stockBadge = '<span class="low-stock-badge"><i class="fa-solid fa-fire"></i> ¡Última unidad!</span>';
             }
 
             const topLeftBadge = inCartQty > 0

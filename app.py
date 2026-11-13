@@ -118,10 +118,17 @@ def export_static_web_files():
             with open(os.path.join(api_dir, name), 'w', encoding='utf-8') as f:
                 f.write(json_str)
 
-        # Copiar templates/tienda.html a index.html en la raíz para Cloudflare Pages / GitHub Pages
+        # Copiar templates/tienda.html a index.html en la raíz con cache-busting automático para CSS/JS
         tpl_path = os.path.join(base_dir, 'templates', 'tienda.html')
         if os.path.exists(tpl_path):
-            shutil.copy2(tpl_path, os.path.join(base_dir, 'index.html'))
+            import re, time
+            ver_stamp = str(int(time.time()))
+            with open(tpl_path, 'r', encoding='utf-8') as tf:
+                tpl_html = tf.read()
+            tpl_html = re.sub(r'href="static/css/tienda\.css(\?v=[^"]*)?"', f'href="static/css/tienda.css?v={ver_stamp}"', tpl_html)
+            tpl_html = re.sub(r'src="static/js/tienda\.js(\?v=[^"]*)?"', f'src="static/js/tienda.js?v={ver_stamp}"', tpl_html)
+            with open(os.path.join(base_dir, 'index.html'), 'w', encoding='utf-8') as out_f:
+                out_f.write(tpl_html)
 
         # Actualizar paquete listo para subir a Cloudflare Pages (tienda_cloudflare.zip)
         zip_path = os.path.join(base_dir, 'tienda_cloudflare.zip')
@@ -398,7 +405,8 @@ def require_admin_auth():
         path in ['/', '/tienda', '/login', '/logout'] or
         path.startswith('/static/') or
         path.startswith('/uploads/') or
-        path.startswith('/api/public/')
+        path.startswith('/api/public/') or
+        (not IS_RENDER and (path == '/difusion' or path.startswith('/api/wa/')))
     ):
         return None
         
@@ -1009,9 +1017,15 @@ def api_create_sale():
         }
         sale_id = database.create_sale(sale_data, items)
         
-        # Devolver la venta creada y productos actualizados para refrescar stock en frontend
+        # Devolver la venta creada y productos actualizados (incluyendo componentes de combos) para refrescar stock en frontend
         sale_detail = database.get_sale_detail(sale_id)
-        updated_products = [database.get_product(it['product_id']) for it in items]
+        affected_pids = set()
+        for it in items:
+            affected_pids.add(it['product_id'])
+            for comp in database.get_combo_components(it['product_id']):
+                if comp.get('product_id'):
+                    affected_pids.add(comp['product_id'])
+        updated_products = [database.get_product(pid) for pid in affected_pids if pid]
         
         trigger_background_sync()
 
@@ -1056,9 +1070,15 @@ def api_cancel_sale(sale_id):
         threading.Thread(target=sync_cancel_sale_to_remote, args=(sale_id,), daemon=True).start()
         trigger_background_sync()
         
-    # Devolver productos para refrescar stock en frontend
+    # Devolver productos para refrescar stock en frontend (incluyendo componentes de combos)
     sale = database.get_sale_detail(sale_id)
-    updated_products = [database.get_product(it['product_id']) for it in (sale.get('items', []) if sale else [])]
+    affected_pids = set()
+    for it in (sale.get('items', []) if sale else []):
+        affected_pids.add(it['product_id'])
+        for comp in database.get_combo_components(it['product_id']):
+            if comp.get('product_id'):
+                affected_pids.add(comp['product_id'])
+    updated_products = [database.get_product(pid) for pid in affected_pids if pid]
     return jsonify({
         "success": True, 
         "message": f"Venta #{sale_id} anulada permanentemente y stock reintegrado",
@@ -1221,6 +1241,205 @@ def api_sync_images():
         })
     return jsonify({"error": f"Error al sincronizar fotos: {git_msg}"}), 500
 
+
+# ----------------- AUTOMATIZADOR DE DIFUSIÓN WHATSAPP WEB -----------------
+import whatsapp_broadcaster
+
+@app.route('/difusion')
+def page_whatsapp_difusion():
+    """Panel web para gestionar y lanzar difusiones automáticas por WhatsApp Web"""
+    whatsapp_broadcaster.init_wa_tables()
+    return render_template('difusion.html')
+
+@app.route('/api/wa/status', methods=['GET'])
+def api_wa_status():
+    eng = whatsapp_broadcaster.broadcaster_engine
+    wa_check = eng.check_whatsapp_ready()
+    return jsonify({
+        "wa_state": wa_check.get("state", "closed"),
+        "browser_open": wa_check.get("browser_open", False),
+        "logged_in": wa_check.get("logged_in", False),
+        "is_running": eng.is_running,
+        "is_paused": eng.is_paused,
+        "total_to_send": eng.total_to_send,
+        "sent_count": eng.sent_count,
+        "failed_count": eng.failed_count,
+        "current_contact": eng.current_contact,
+        "status_text": eng.status_text,
+        "logs": eng.logs[:80]
+    })
+
+@app.route('/api/wa/open-browser', methods=['POST'])
+def api_wa_open_browser():
+    ok, msg = whatsapp_broadcaster.broadcaster_engine.launch_whatsapp_web()
+    return jsonify({"success": ok, "message": msg})
+
+@app.route('/api/wa/reload', methods=['POST'])
+def api_wa_reload():
+    ok, msg = whatsapp_broadcaster.broadcaster_engine.reload_whatsapp_page()
+    return jsonify({"success": ok, "message": msg})
+
+@app.route('/api/wa/screenshot', methods=['GET'])
+def api_wa_screenshot():
+    png_bytes = whatsapp_broadcaster.broadcaster_engine.get_screenshot_bytes()
+    if not png_bytes:
+        return '', 404
+    return send_file(io.BytesIO(png_bytes), mimetype='image/png')
+
+@app.route('/api/wa/scrape-chats', methods=['POST'])
+def api_wa_scrape_chats():
+    ok, msg = whatsapp_broadcaster.broadcaster_engine.scrape_chats_from_whatsapp_web()
+    return jsonify({"success": ok, "message": msg})
+
+@app.route('/api/wa/contacts', methods=['GET'])
+def api_wa_get_contacts():
+    return jsonify({"contacts": whatsapp_broadcaster.get_all_contacts()})
+
+@app.route('/api/wa/templates', methods=['GET'])
+def api_wa_get_templates():
+    return jsonify({"templates": whatsapp_broadcaster.get_all_templates()})
+
+@app.route('/api/wa/templates/save', methods=['POST'])
+def api_wa_save_template():
+    data = request.get_json(force=True, silent=True) or {}
+    tid = data.get('id', '')
+    title = data.get('title', '')
+    msg = data.get('message_text', '')
+    img = data.get('image_path', '')
+    if not title or not msg:
+        return jsonify({"success": False, "message": "Título y mensaje son requeridos"}), 400
+    whatsapp_broadcaster.save_or_update_template(tid, title, msg, img)
+    return jsonify({"success": True, "templates": whatsapp_broadcaster.get_all_templates()})
+
+@app.route('/api/wa/templates/delete', methods=['POST'])
+def api_wa_delete_template():
+    data = request.get_json(force=True, silent=True) or {}
+    tid = data.get('id', '')
+    if not tid:
+        return jsonify({"success": False, "message": "ID requerido"}), 400
+    whatsapp_broadcaster.delete_template(tid)
+    return jsonify({"success": True, "templates": whatsapp_broadcaster.get_all_templates()})
+
+@app.route('/api/wa/import-file', methods=['POST'])
+def api_wa_import_file():
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "No se seleccionó archivo"}), 400
+    f = request.files['file']
+    res = whatsapp_broadcaster.import_contacts_from_file(f.read(), f.filename or 'contacts.csv', tag='Google Contacts')
+    return jsonify({
+        "success": True,
+        "message": f"¡Importación completada! {res['inserted']} contactos nuevos agregados y {res['updated']} actualizados."
+    })
+
+@app.route('/api/wa/import-text', methods=['POST'])
+def api_wa_import_text():
+    data = request.get_json(force=True, silent=True) or {}
+    raw_text = data.get('text', '')
+    res = whatsapp_broadcaster.import_contacts_from_file(raw_text.encode('utf-8'), 'manual.txt', tag='General')
+    return jsonify({
+        "success": True,
+        "message": f"Se guardaron {res['inserted']} contactos nuevos y se actualizaron {res['updated']}."
+    })
+
+@app.route('/api/wa/contacts/delete', methods=['POST'])
+def api_wa_delete_contacts():
+    data = request.get_json(force=True, silent=True) or {}
+    ids = data.get('ids', [])
+    if ids:
+        conn = database.get_db_connection()
+        placeholders = ','.join(['?'] * len(ids))
+        conn.execute(f'DELETE FROM wa_contacts WHERE id IN ({placeholders})', ids)
+        conn.commit()
+        conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/wa/promo-images', methods=['GET'])
+def api_wa_promo_images():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    images = []
+    # Buscar historias/placas en el directorio raíz y en uploads/promos
+    labels_map = {
+        'historia_ig_feriado_pedidos_12am_skyy_cosmic.png': '🔥 Especial Feriado 12AM',
+        'historia_ig_pedidos_12am_skyy_cosmic.png': '🕛 Pedidos hasta las 12',
+        'historia_semana_01_cuenta_dni_medios_pago.png': '💳 20% Cuenta DNI',
+        'historia_semana_02_packs_gaseosas.png': '🥤 Packs Gaseosas',
+        'historia_semana_03_combos_clasicos.png': '🍾 Combos Clásicos',
+        'historia_semana_04_combos_gin_vinos.png': '🍸 Combos Gin y Vinos'
+    }
+    for fname in sorted(os.listdir(base_dir)):
+        if fname.lower().endswith(('.png', '.jpg', '.jpeg')) and ('historia' in fname.lower() or 'promo' in fname.lower() or 'flyer' in fname.lower()):
+            images.append({
+                "name": fname,
+                "path": fname,
+                "label": labels_map.get(fname, fname.replace('historia_', '').replace('.png', ''))
+            })
+    promos_dir = os.path.join(UPLOAD_FOLDER, 'promos')
+    if os.path.exists(promos_dir):
+        for fname in sorted(os.listdir(promos_dir), reverse=True):
+            if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                rel = f"uploads/promos/{fname}"
+                images.append({"name": fname, "path": rel, "label": fname})
+    return jsonify({"images": images})
+
+@app.route('/api/wa/image-preview')
+def api_wa_image_preview():
+    rel_path = request.args.get('path', '')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.abspath(os.path.join(base_dir, rel_path))
+    if not full_path.startswith(base_dir) or not os.path.exists(full_path):
+        return '', 404
+    return send_file(full_path)
+
+@app.route('/api/wa/upload-promo-image', methods=['POST'])
+def api_wa_upload_promo_image():
+    if 'file' not in request.files:
+        return jsonify({"success": False}), 400
+    f = request.files['file']
+    if not f or not f.filename:
+        return jsonify({"success": False}), 400
+    promos_dir = os.path.join(UPLOAD_FOLDER, 'promos')
+    os.makedirs(promos_dir, exist_ok=True)
+    safe_name = secure_filename(f.filename)
+    dest = os.path.join(promos_dir, safe_name)
+    f.save(dest)
+    return jsonify({"success": True, "path": f"uploads/promos/{safe_name}"})
+
+@app.route('/api/wa/start', methods=['POST'])
+def api_wa_start():
+    data = request.get_json(force=True, silent=True) or {}
+    contact_ids = data.get('contact_ids', [])
+    message_template = data.get('message_template', '')
+    rel_image = data.get('image_path', '')
+    min_delay = data.get('min_delay', 14)
+    max_delay = data.get('max_delay', 24)
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    full_img_path = os.path.abspath(os.path.join(base_dir, rel_image)) if rel_image else ''
+    if full_img_path and not os.path.exists(full_img_path):
+        full_img_path = ''
+
+    ok, msg = whatsapp_broadcaster.broadcaster_engine.start_campaign(
+        contact_ids=contact_ids,
+        message_template=message_template,
+        image_path=full_img_path,
+        min_delay=min_delay,
+        max_delay=max_delay
+    )
+    return jsonify({"success": ok, "message": msg})
+
+@app.route('/api/wa/pause', methods=['POST'])
+def api_wa_pause():
+    eng = whatsapp_broadcaster.broadcaster_engine
+    eng.is_paused = not eng.is_paused
+    return jsonify({"success": True, "is_paused": eng.is_paused})
+
+@app.route('/api/wa/stop', methods=['POST'])
+def api_wa_stop():
+    eng = whatsapp_broadcaster.broadcaster_engine
+    eng.stop_requested = True
+    eng.is_paused = False
+    return jsonify({"success": True})
+
 # ----------------- INICIALIZACIÓN DE LA APLICACIÓN -----------------
 
 def get_free_port(preferred_port=5000, fallback_ports=(5001, 5050, 8080, 8000, 5500, 3000)):
@@ -1238,7 +1457,8 @@ def get_free_port(preferred_port=5000, fallback_ports=(5001, 5050, 8080, 8000, 5
         return s.getsockname()[1]
 
 def open_browser(port):
-    webbrowser.open_new(f"http://127.0.0.1:{port}")
+    target_page = os.environ.get('OPEN_PAGE', '')
+    webbrowser.open_new(f"http://127.0.0.1:{port}{target_page}")
 
 # Inicializar base de datos y exportar JSON estáticos al arrancar
 database.init_db()

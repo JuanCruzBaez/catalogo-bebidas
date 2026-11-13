@@ -622,7 +622,7 @@ def get_public_products(category_id=None, query=None):
     """
     Retorna productos activos sanitizados para clientes finales.
     EXCLUYE estrictamente: cost_price, supplier, profit_margin_target.
-    Ofusca stock exacto: solo marca is_low_stock (1 a 3 un.) y is_out_of_stock.
+    Ofusca stock exacto: solo marca is_low_stock (exactamente 1 un.) y is_out_of_stock.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -660,7 +660,7 @@ def get_public_products(category_id=None, query=None):
     for r in rows:
         stock = int(r["stock"] if r["stock"] is not None else 0)
         is_out = stock <= 0
-        is_low = 1 <= stock <= 3
+        is_low = stock == 1
         
         public_products.append({
             "id": r["id"],
@@ -674,7 +674,7 @@ def get_public_products(category_id=None, query=None):
             "is_featured": int(r["is_featured"] or 0),
             "is_out_of_stock": is_out,
             "is_low_stock": is_low,
-            "low_stock_count": stock if is_low else None
+            "low_stock_count": 1 if is_low else None
             # Confidencialidad: NUNCA incluir cost_price, supplier ni márgenes
         })
     return public_products

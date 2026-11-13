@@ -365,15 +365,26 @@
                             <option value="Google Contacts">Google Contacts</option>
                             <option value="General">Manual / General</option>
                         </select>
+                        <select x-model="statusFilter"
+                            class="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+                            <option value="">Todos los estados</option>
+                            <option value="pending" x-text="'⏳ Solo pendientes (' + countPendingContacts() + ')'"></option>
+                            <option value="sent_today" x-text="'✅ Ya enviados hoy (' + countSentTodayContacts() + ')'"></option>
+                        </select>
                     </div>
 
-                    <div class="flex items-center gap-2 text-xs">
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button @click="selectPendingOnly()"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950/50">
+                            <span>⚡ Reanudar pendientes (sin duplicados)</span>
+                            <span class="bg-black/30 text-emerald-200 text-[10px] px-1.5 py-0.5 rounded-full font-mono" x-text="countPendingContacts()"></span>
+                        </button>
                         <button @click="selectAllFiltered()"
-                            class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-emerald-300 font-bold transition">
-                            Marcar todos (<span x-text="filteredContacts().length"></span>)
+                            class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-slate-300 font-semibold transition">
+                            Marcar visibles (<span x-text="filteredContacts().length"></span>)
                         </button>
                         <button @click="selectedIds = []"
-                            class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-slate-300 font-semibold transition">
+                            class="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-slate-400 font-semibold transition">
                             Desmarcar
                         </button>
                         <button @click="deleteSelectedContacts()" x-show="selectedIds.length > 0"
@@ -551,6 +562,7 @@
                 selectedIds: [],
                 searchQuery: '',
                 tagFilter: '',
+                statusFilter: '',
 
                 promoImages: [],
                 selectedImage: 'historia_ig_feriado_pedidos_12am_skyy_cosmic.png',
@@ -754,12 +766,37 @@
                     } catch (e) { }
                 },
 
+                isContactSentToday(c) {
+                    if (!c.last_sent_at) return false;
+                    if (c.last_status !== 'ok') return false;
+                    const today = new Date();
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const yyyy = today.getFullYear();
+                    const todayStr = `${dd}/${mm}/${yyyy}`;
+                    return c.last_sent_at.startsWith(todayStr);
+                },
+
+                countPendingContacts() {
+                    return this.contacts.filter(c => c.active && !this.isContactSentToday(c)).length;
+                },
+
+                countSentTodayContacts() {
+                    return this.contacts.filter(c => c.active && this.isContactSentToday(c)).length;
+                },
+
+                selectPendingOnly() {
+                    const pending = this.filteredContacts().filter(c => !this.isContactSentToday(c));
+                    this.selectedIds = pending.map(c => c.id);
+                },
+
                 async fetchContacts() {
                     const res = await fetch('/api/wa/contacts');
                     const data = await res.json();
                     this.contacts = data.contacts || [];
                     if (this.selectedIds.length === 0) {
-                        this.selectedIds = this.contacts.filter(c => c.active).map(c => c.id);
+                        const pending = this.contacts.filter(c => c.active && !this.isContactSentToday(c));
+                        this.selectedIds = (pending.length > 0 ? pending : this.contacts.filter(c => c.active)).map(c => c.id);
                     }
                 },
 
@@ -773,6 +810,8 @@
                     const q = this.searchQuery.trim().toLowerCase();
                     return this.contacts.filter(c => {
                         if (this.tagFilter && c.tag !== this.tagFilter) return false;
+                        if (this.statusFilter === 'pending' && this.isContactSentToday(c)) return false;
+                        if (this.statusFilter === 'sent_today' && !this.isContactSentToday(c)) return false;
                         if (!q) return true;
                         return (c.name || '').toLowerCase().includes(q) ||
                             (c.phone || '').toLowerCase().includes(q) ||

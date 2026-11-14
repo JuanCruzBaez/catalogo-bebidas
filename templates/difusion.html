@@ -761,7 +761,8 @@
                             this.screenTick = Date.now();
                         }
                         if (prevRunning && !this.isRunning) {
-                            this.fetchContacts();
+                            await this.fetchContacts();
+                            this.selectPendingOnly();
                         }
                     } catch (e) { }
                 },

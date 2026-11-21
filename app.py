@@ -1373,12 +1373,22 @@ def api_wa_promo_images():
                 "path": fname,
                 "label": labels_map.get(fname, fname.replace('historia_', '').replace('.png', ''))
             })
+    promos_labels = {
+        'combo_fernet_coca_promo.jpg': '🔥 Combo Fernet + 2 Cocas ($27.500)',
+        'combo_jack_daniels_n7_promo.jpg': "🥃 Combo Jack Daniel's N°7 + 3 Speed ($57.000)",
+        'combo_skyy_speed_promo.jpg': '🍹 Combo Vodka Skyy + 3 Speed ($18.500)',
+        'combo_malibu_baggio_promo.jpg': '🥥 Combo Ron Malibu + 2 Baggio ($18.000)',
+        'combo_jaggermeister_speed_promo.jpg': '🦌 Combo Jägermeister + 3 Speed ($40.000)',
+        'combo_gin_beefeater_pink_promo.jpg': '🍓 Combo Gin Beefeater Pink + 2 Tónica ($36.000)',
+        'combo_gancia_7up_promo.jpg': '🍋 Combo Gancia + 2 Seven Up ($14.500)',
+        'combo_absolut_speed_promo.jpg': '💥 Combo Vodka Absolut + 3 Speed ($32.500)'
+    }
     promos_dir = os.path.join(UPLOAD_FOLDER, 'promos')
     if os.path.exists(promos_dir):
-        for fname in sorted(os.listdir(promos_dir), reverse=True):
+        for fname in sorted(os.listdir(promos_dir)):
             if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                 rel = f"uploads/promos/{fname}"
-                images.append({"name": fname, "path": rel, "label": fname})
+                images.append({"name": fname, "path": rel, "label": promos_labels.get(fname, fname)})
     return jsonify({"images": images})
 
 @app.route('/api/wa/image-preview')

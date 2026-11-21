@@ -761,6 +761,18 @@ COMBO_PRODUCT_MAPPING = {
     60: 339, # Combo Gin Gordon's Pink + 2 Tonica Cunnington
     61: 340, # Combo Gin Heredero Lemon & Ginger + 2 Tonica Cunnington
     62: 341, # Combo Gin Heredero Pink + 2 Tonica Cunnington
+    63: 348, # Combo Pack Seven Up 2.25L x6
+    64: 349, # Combo Pack Manaos Cola 2.25L x6
+    65: 350, # Combo Pack Manaos Lima 2.25L x6
+    66: 351, # Combo Pack Manaos Naranja 2.25L x6
+    67: 352, # Combo Pack Manaos Pomelo 2.25L x6
+    68: 353, # Combo Pack Agua Corazón 1.5L x6
+    69: 354, # Combo Pack Placer Manzana 1.5L x6
+    70: 355, # Combo Pack Placer Pera 500ml x12
+    71: 356, # Combo Pack Placer Pomelo 500ml x12
+    72: 357, # Combo Pack Placer Naranja 500ml x12
+    73: 358, # Combo Pack Placer Manzana 500ml x12
+    74: 359, # Combo Pack Placer Ananá 500ml x12
 }
 
 # Mapeo completo de productos combo a sus componentes individuales
@@ -835,6 +847,17 @@ COMBO_COMPONENTS_MAP = {
     339: [{"product_id": 332, "qty": 1, "name": "Gin Gordon's Pink 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
     340: [{"product_id": 70, "qty": 1, "name": "Gin Heredero Lemon y Ginger 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
     341: [{"product_id": 69, "qty": 1, "name": "Gin Heredero Grapefruit 700ml"}, {"product_id": 213, "qty": 2, "name": "Tónica Cunnington 2.25L"}],
+    348: [{"product_id": 97, "qty": 6, "name": "SEVEN UP BOTELLA"}],
+    349: [{"product_id": 141, "qty": 6, "name": "MANAOS COLA"}],
+    350: [{"product_id": 221, "qty": 6, "name": "MANAOS LIMA LIMON"}],
+    351: [{"product_id": 222, "qty": 6, "name": "MANAOS NARANJA"}],
+    352: [{"product_id": 153, "qty": 6, "name": "MANAOS POMELO"}],
+    353: [{"product_id": 283, "qty": 6, "name": "AGUA MANAOS CORAZON ARGENTINO"}],
+    354: [{"product_id": 145, "qty": 6, "name": "AGUA SABORIZADA PLACER SABOR MANZANA"}],
+    355: [{"product_id": 268, "qty": 12, "name": "AGUA SABORIZADA PLACER PERA"}],
+    357: [{"product_id": 267, "qty": 12, "name": "AGUA SABORIZADA PLACER NARANJA"}],
+    358: [{"product_id": 252, "qty": 12, "name": "AGUA SABORIZADA PLACER MANZANA"}],
+    359: [{"product_id": 253, "qty": 12, "name": "AGUA SABORIZADA PLACER ANANA"}],
 }
 
 def get_combo_components(product_id, cursor=None):

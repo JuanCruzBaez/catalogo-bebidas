@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Estilos de la Tienda -->
-    <link rel="stylesheet" href="static/css/tienda.css?v=1795558480">
+    <link rel="stylesheet" href="/static/css/tienda.css?v=1793815000">
 </head>
 <body>
 
@@ -60,8 +60,8 @@
                     <span class="hamburger-label">Categorías</span>
                 </button>
 
-                <a href="./" class="brand-logo" aria-label="Bebidas 25 de Mayo">
-                    <img src="static/images/logo.png" onerror="this.src='uploads/logo.jpg'" alt="Logo Bebidas 25 de Mayo" class="logo-img">
+                <a href="/" class="brand-logo" onclick="if(window.tiendaApp && window.tiendaApp.isDetailOpen()){event.preventDefault();tiendaApp.closeItemDetail();}" aria-label="Bebidas 25 de Mayo">
+                    <img src="/static/images/logo.png" onerror="this.src='/uploads/logo.jpg'" alt="Logo Bebidas 25 de Mayo" class="logo-img">
                     <div class="brand-text">
                         <span class="brand-title">BEBIDAS <strong>25 DE MAYO</strong></span>
                         <span class="brand-subtitle">DISTRIBUIDORA MAYORISTA & MINORISTA</span>
@@ -126,6 +126,11 @@
         </div>
     </aside>
 
+    <!-- VISTA DEDICADA DE PRODUCTO / COMBO (URL PROPIA COMPARTIBLE) -->
+    <section class="item-detail-section" id="itemDetailSection" style="display: none;" aria-live="polite">
+        <div class="container" id="itemDetailContainer"></div>
+    </section>
+
     <!-- HERO CARRUSEL DE PRODUCTOS Y COMBOS -->
     <section class="hero-carousel-section" id="heroCarouselSection">
         <div class="container">
@@ -154,7 +159,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_fernet_coca.png" alt="Combo Fernet Branca + Coca Cola" class="slide-img">
+                                <img src="/uploads/combos/combo_fernet_coca.png" alt="Combo Fernet Branca + Coca Cola" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -181,7 +186,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_absolut_speed.png" alt="Combo Vodka Absolut + Speed XL" class="slide-img">
+                                <img src="/uploads/combos/combo_absolut_speed.png" alt="Combo Vodka Absolut + Speed XL" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -208,7 +213,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/prod_1790186883_combo-skyy-jungle-speed.png" alt="Combo Vodka Skyy Jungle + Speed XL" class="slide-img">
+                                <img src="/uploads/prod_1790186883_combo-skyy-jungle-speed.png" alt="Combo Vodka Skyy Jungle + Speed XL" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -235,7 +240,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_jaggermeister_speed.png" alt="Combo Jaggermeister + 3 Speed XL" class="slide-img">
+                                <img src="/uploads/combos/combo_jaggermeister_speed.png" alt="Combo Jaggermeister + 3 Speed XL" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -262,7 +267,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_jw_speed.png" alt="Combo JW Red Label + Speed XL" class="slide-img">
+                                <img src="/uploads/combos/combo_jw_speed.png" alt="Combo JW Red Label + Speed XL" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -285,7 +290,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_cervezas_pack.png" alt="Packs Cervezas Corona y Heineken 710ml" class="slide-img">
+                                <img src="/uploads/combos/combo_cervezas_pack.png" alt="Packs Cervezas Corona y Heineken 710ml" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -312,7 +317,7 @@
                                 </div>
                             </div>
                             <div class="slide-image-box">
-                                <img src="uploads/combos/combo_cocacola_x8.png" alt="Pack Coca-Cola 2.25L x8" class="slide-img">
+                                <img src="/uploads/combos/combo_cocacola_x8.png" alt="Pack Coca-Cola 2.25L x8" class="slide-img">
                             </div>
                         </div>
                     </div>
@@ -711,6 +716,6 @@
     <div id="toastNotification" class="toast-notification"></div>
 
     <!-- Scripts de la Tienda -->
-    <script src="static/js/tienda.js?v=1795558480"></script>
+    <script src="/static/js/tienda.js?v=1793815000"></script>
 </body>
 </html>

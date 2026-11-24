@@ -23,8 +23,37 @@
         searchQuery: '',
         sortBy: 'featured',
         carouselIndex: 0,
-        carouselTimer: null
+        carouselTimer: null,
+        activeDetail: null // { type: 'product' | 'combo', id: number }
     };
+
+    function slugifyText(text) {
+        return String(text || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'item';
+    }
+
+    function getProductSlug(p) {
+        return p.slug || `${slugifyText(`${p.name || ''} ${p.presentation || ''}`)}-${p.id}`;
+    }
+
+    function getComboSlug(c) {
+        return c.slug || `${slugifyText(c.name || '')}-${c.id}`;
+    }
+
+    function getAbsoluteImg(relPath) {
+        if (!relPath) return '/uploads/logo.jpg';
+        if (/^https?:\/\//i.test(relPath)) return relPath;
+        return '/' + relPath.replace(/^\/+/, '');
+    }
+
+    function getItemPath(type, item) {
+        if (type === 'combo') return `/combo/${getComboSlug(item)}`;
+        return `/producto/${getProductSlug(item)}`;
+    }
 
     function formatCurrency(amount) {
         if (isNaN(amount)) return '$ 0';
@@ -451,15 +480,15 @@
 
         let html = '';
         state.combos.forEach(c => {
-            const imgPath = c.image_path ? `${c.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
+            const imgPath = getAbsoluteImg(c.image_path);
             const itemsList = (c.items || []).map(it => `<li><i class="fa-solid fa-check"></i> ${it.qty}x ${it.name}</li>`).join('');
             const inCartQty = getCartQtyForItem(c.id, 'combo');
 
             html += `
-                <div class="combo-card ${inCartQty > 0 ? 'in-cart-active' : ''}">
+                <div class="combo-card ${inCartQty > 0 ? 'in-cart-active' : ''}" data-combo-id="${c.id}">
                     ${inCartQty > 0 ? `<span class="in-cart-pill"><i class="fa-solid fa-check"></i> En tu pedido (${inCartQty})</span>` : (c.badge ? `<span class="combo-badge-pill">${c.badge}</span>` : '')}
                     <div class="combo-image-box">
-                        <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${c.name}">
+                        <img src="${imgPath}" onerror="this.src='/uploads/logo.jpg'" alt="${c.name}">
                     </div>
                     <div class="combo-content">
                         <h3 class="combo-name">${c.name}</h3>
@@ -618,6 +647,7 @@
     }
 
     function filterByCategory(category) {
+        if (state.activeDetail) closeItemDetail(true);
         state.activeCategory = category;
         renderCategories();
 
@@ -718,7 +748,7 @@
         let html = '';
 
         filtered.forEach(p => {
-            const imgPath = p.image_path ? `${p.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg';
+            const imgPath = getAbsoluteImg(p.image_path);
             const inCartQty = getCartQtyForItem(p.id, 'product');
 
             let stockBadge = '';
@@ -757,7 +787,7 @@
                     ${stockBadge}
                     ${topLeftBadge}
                     <div class="product-image-container">
-                        <img src="${imgPath}" onerror="this.src='uploads/logo.jpg'" alt="${p.name}" loading="lazy">
+                        <img src="${imgPath}" onerror="this.src='/uploads/logo.jpg'" alt="${p.name}" loading="lazy">
                     </div>
                     <div class="product-info">
                         <span class="product-category-tag">${p.category_name}</span>
@@ -920,6 +950,7 @@ ${itemsText}`;
 
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
+                if (state.activeDetail) closeItemDetail(true);
                 state.searchQuery = e.target.value;
                 if (clearSearchBtn) clearSearchBtn.style.display = state.searchQuery ? 'block' : 'none';
                 renderFilteredProducts();
@@ -986,7 +1017,7 @@ ${itemsText}`;
             const fetchEndpoint = async (name) => {
                 const bust = '?v=' + Date.now();
                 try {
-                    const r1 = await fetch(`api/public/${name}.json${bust}`);
+                    const r1 = await fetch(`/api/public/${name}.json${bust}`);
                     if (r1.ok) return await r1.json();
                 } catch (e) {}
                 const r2 = await fetch(`/api/public/${name}${bust}`);
@@ -1018,11 +1049,226 @@ ${itemsText}`;
             updateCartUI();
             initCarousel();
 
+            // Si el usuario ingresó por URL directa (/producto/<slug> o /combo/<slug>), abrir su vista
+            syncRouteFromLocation();
+
         } catch (err) {
             console.error('Error cargando catálogo público:', err);
             showToast('Error de conexión al cargar el catálogo', 'fa-triangle-exclamation');
         }
     }
+
+    // ----------------- VISTA DEDICADA + ROUTER POR URL (/producto/<slug> y /combo/<slug>) -----------------
+    const DEFAULT_PAGE_TITLE = 'Bebidas 25 de Mayo | Tienda Online Mayorista y Minorista';
+
+    function setCatalogSectionsVisible(visible) {
+        const ids = ['heroCarouselSection', 'combosSection', 'catalogSection'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = visible ? '' : 'none';
+        });
+        const trust = document.querySelector('.trust-banner-section');
+        const mainCatalog = document.querySelector('.products-catalog-section');
+        if (trust) trust.style.display = visible ? '' : 'none';
+        if (mainCatalog) mainCatalog.style.display = visible ? '' : 'none';
+    }
+
+    function openItemDetail(type, item, pushHistory = true) {
+        const section = document.getElementById('itemDetailSection');
+        const container = document.getElementById('itemDetailContainer');
+        if (!section || !container || !item) return;
+
+        state.activeDetail = { type, id: item.id };
+        const isCombo = type === 'combo';
+        const imgUrl = getAbsoluteImg(item.image_path);
+        const itemPath = getItemPath(type, item);
+        const fullUrl = `${window.location.origin}${itemPath}`;
+
+        if (pushHistory && window.location.pathname !== itemPath) {
+            try {
+                window.history.pushState({ detailType: type, detailId: item.id }, '', itemPath);
+            } catch (e) {}
+        }
+
+        const priceLabel = isCombo ? formatCurrency(item.price) : formatCurrency(item.price_minorista);
+        document.title = `${item.name} — ${priceLabel} | Bebidas 25 de Mayo`;
+
+        const inCartQty = getCartQtyForItem(item.id, type);
+        const isOut = !isCombo && item.is_out_of_stock;
+
+        let pricingHtml = '';
+        if (isCombo) {
+            const oldHtml = (item.regular_price && item.regular_price > item.price)
+                ? `<span class="detail-old-price">Antes ${formatCurrency(item.regular_price)}</span>`
+                : '';
+            pricingHtml = `
+                <div class="detail-price-box mayorista">
+                    <span class="detail-price-label">🔥 Precio Promo Combo</span>
+                    <div class="detail-price-value">${formatCurrency(item.price)} ${oldHtml}</div>
+                </div>
+            `;
+        } else {
+            const pMay = item.price_mayorista || item.price_minorista;
+            pricingHtml = `
+                <div class="detail-price-box">
+                    <span class="detail-price-label">Precio Minorista (x unidad)</span>
+                    <div class="detail-price-value">${formatCurrency(item.price_minorista)}</div>
+                </div>
+                <div class="detail-price-box mayorista">
+                    <span class="detail-price-label">Precio Mayorista (compras &gt;$100.000)</span>
+                    <div class="detail-price-value">${formatCurrency(pMay)}</div>
+                </div>
+            `;
+        }
+
+        const comboItemsHtml = (isCombo && item.items && item.items.length)
+            ? `<ul class="detail-combo-list">${item.items.map(it => `<li><i class="fa-solid fa-check"></i> ${it.qty}x ${it.name}</li>`).join('')}</ul>`
+            : '';
+
+        const stageBadge = isCombo
+            ? (item.badge ? `<span class="detail-stage-badge">${item.badge}</span>` : '<span class="detail-stage-badge">🔥 COMBO ESPECIAL</span>')
+            : (isOut ? '<span class="detail-stage-badge">AGOTADO</span>' : (item.is_featured ? '<span class="detail-stage-badge">⭐ DESTACADO</span>' : ''));
+
+        // Relacionados (4 del mismo rubro o 4 combos)
+        let relatedItems = [];
+        if (isCombo) {
+            relatedItems = state.combos.filter(c => c.id !== item.id).slice(0, 4).map(c => ({
+                type: 'combo', id: c.id, name: c.name, price: c.price, image: getAbsoluteImg(c.image_path), href: getItemPath('combo', c)
+            }));
+        } else {
+            relatedItems = state.products
+                .filter(p => p.id !== item.id && String(p.category_id) === String(item.category_id) && (!p.category_name || p.category_name.toUpperCase() !== 'COMBOS'))
+                .slice(0, 4)
+                .map(p => ({
+                    type: 'product', id: p.id, name: p.name, price: p.price_minorista, image: getAbsoluteImg(p.image_path), href: getItemPath('product', p)
+                }));
+        }
+
+        const relatedHtml = relatedItems.length ? `
+            <div class="detail-related-block">
+                <h2 class="detail-related-title">También te puede interesar</h2>
+                <div class="detail-related-grid">
+                    ${relatedItems.map(r => `
+                        <a href="${r.href}" class="related-mini-card" onclick="event.preventDefault(); tiendaApp.openItemById('${r.type}', ${r.id});">
+                            <div class="related-mini-img">
+                                <img src="${r.image}" onerror="this.src='/uploads/logo.jpg'" alt="${r.name}" loading="lazy">
+                            </div>
+                            <div class="related-mini-name">${r.name}</div>
+                            <div class="related-mini-price">${formatCurrency(r.price)}</div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        container.innerHTML = `
+            <div class="detail-breadcrumb">
+                <button type="button" class="btn-back-catalog" onclick="tiendaApp.closeItemDetail()">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al catálogo
+                </button>
+                <span class="detail-crumb-path">${isCombo ? 'Combos Especiales' : (item.category_name || 'Catálogo')} / ${item.name}</span>
+            </div>
+
+            <div class="detail-main-card">
+                <div class="detail-image-stage">
+                    ${stageBadge}
+                    <img src="${imgUrl}" onerror="this.src='/uploads/logo.jpg'" alt="${item.name}">
+                </div>
+
+                <div class="detail-info-col">
+                    <span class="detail-cat-pill">${isCombo ? '🔥 COMBO PROMOCIONAL' : (item.category_name || 'BEBIDA')}</span>
+                    <h1 class="detail-title">${item.name}</h1>
+                    <p class="detail-subtitle">${isCombo ? (item.description || 'Combo armado listo para retirar o enviar por Lanús.') : (item.presentation || 'Unidad')}</p>
+                    ${comboItemsHtml}
+
+                    <div class="detail-prices-grid">
+                        ${pricingHtml}
+                    </div>
+
+                    <div class="detail-buy-row">
+                        <div class="quantity-stepper">
+                            <button type="button" onclick="tiendaApp.stepDetailQty(-1)" aria-label="Restar">-</button>
+                            <input type="number" id="detailQtyInput" value="1" min="1" max="99" readonly>
+                            <button type="button" onclick="tiendaApp.stepDetailQty(1)" aria-label="Sumar">+</button>
+                        </div>
+                        <button type="button" class="btn-detail-add" onclick="tiendaApp.addDetailItemToCart()" ${isOut ? 'disabled' : ''}>
+                            <i class="fa-solid fa-cart-plus"></i>
+                            ${isOut ? 'Agotado' : (inCartQty > 0 ? `Sumar al Pedido (${inCartQty} en carrito)` : 'Agregar al Pedido')}
+                        </button>
+                    </div>
+
+                    <div class="detail-share-bar">
+                        <button type="button" class="btn-share-wa" onclick="tiendaApp.shareDetailWhatsapp()">
+                            <i class="fa-brands fa-whatsapp"></i> Compartir por WhatsApp
+                        </button>
+                        <button type="button" class="btn-share-copy" onclick="tiendaApp.copyDetailLink()">
+                            <i class="fa-solid fa-link"></i> Copiar enlace
+                        </button>
+                    </div>
+
+                    <div class="detail-trust-note">
+                        <span><i class="fa-solid fa-truck-fast"></i> Envíos por Lanús</span>
+                        <span><i class="fa-solid fa-store"></i> Retiro en Av. 25 de Mayo 434</span>
+                        <span><i class="fa-regular fa-clock"></i> Lun–Jue 10:30–21:30 · Vie–Sáb 10:30–00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            ${relatedHtml}
+        `;
+
+        setCatalogSectionsVisible(false);
+        section.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeItemDetail(pushHistory = true) {
+        const section = document.getElementById('itemDetailSection');
+        if (section) section.style.display = 'none';
+        state.activeDetail = null;
+        setCatalogSectionsVisible(true);
+        document.title = DEFAULT_PAGE_TITLE;
+        renderFilteredProducts();
+
+        if (pushHistory && window.location.pathname !== '/' && window.location.pathname !== '/tienda') {
+            try {
+                window.history.pushState({}, '', '/');
+            } catch (e) {}
+        }
+    }
+
+    function syncRouteFromLocation() {
+        const path = window.location.pathname.replace(/\/+$/, '');
+        const comboMatch = path.match(/^\/combo\/([^/]+)$/);
+        if (comboMatch) {
+            const slug = decodeURIComponent(comboMatch[1]);
+            const idMatch = slug.match(/-(\d+)$/);
+            let found = idMatch ? state.combos.find(c => String(c.id) === idMatch[1]) : null;
+            if (!found) found = state.combos.find(c => getComboSlug(c) === slug);
+            if (found) {
+                openItemDetail('combo', found, false);
+                return;
+            }
+        }
+        const prodMatch = path.match(/^\/producto\/([^/]+)$/);
+        if (prodMatch) {
+            const slug = decodeURIComponent(prodMatch[1]);
+            const idMatch = slug.match(/-(\d+)$/);
+            let found = idMatch ? state.products.find(p => String(p.id) === idMatch[1]) : null;
+            if (!found) found = state.products.find(p => getProductSlug(p) === slug);
+            if (found) {
+                openItemDetail('product', found, false);
+                return;
+            }
+        }
+        if (state.activeDetail) {
+            closeItemDetail(false);
+        }
+    }
+
+    window.addEventListener('popstate', () => {
+        syncRouteFromLocation();
+    });
 
     // ----------------- ZOOM LIGHTBOX -----------------
     function openImageZoomModal(item) {
@@ -1112,46 +1358,35 @@ ${itemsText}`;
     window.openImageZoomModal = openImageZoomModal;
 
     document.addEventListener('click', (e) => {
-        const prodImgBox = e.target.closest('.product-image-container');
-        if (prodImgBox) {
-            const card = prodImgBox.closest('.product-card');
+        const prodTrigger = e.target.closest('.product-image-container, .product-card .product-name');
+        if (prodTrigger) {
+            const card = prodTrigger.closest('.product-card');
             if (card) {
                 const prodId = card.getAttribute('data-product-id');
                 const prod = state.products.find(p => String(p.id) === String(prodId));
                 if (prod) {
-                    openImageZoomModal({
-                        image: prod.image_path ? `${prod.image_path.replace(/^\/+/, '')}` : 'uploads/logo.jpg',
-                        name: prod.name,
-                        category: prod.category_name,
-                        presentation: prod.presentation || 'Unidad',
-                        priceMinorista: prod.price_minorista,
-                        priceMayorista: prod.price_mayorista,
-                        productId: prod.id,
-                        isCombo: false
-                    });
+                    openItemDetail('product', prod, true);
                 }
             }
             return;
         }
 
-        const comboImgBox = e.target.closest('.combo-image-box');
-        if (comboImgBox) {
-            const card = comboImgBox.closest('.combo-card');
-            const img = comboImgBox.querySelector('img');
-            const titleEl = card ? card.querySelector('.combo-name') : null;
-            if (img && titleEl) {
-                const comboName = titleEl.innerText.trim();
-                const comboObj = state.combos.find(c => c.name.trim().toLowerCase() === comboName.toLowerCase());
-                openImageZoomModal({
-                    image: img.src,
-                    name: comboName,
-                    category: 'COMBO ESPECIAL',
-                    presentation: 'Promo Pack',
-                    priceMinorista: comboObj ? comboObj.price : null,
-                    priceMayorista: null,
-                    comboObj: comboObj,
-                    isCombo: true
-                });
+        const comboTrigger = e.target.closest('.combo-image-box, .combo-card .combo-name');
+        if (comboTrigger) {
+            const card = comboTrigger.closest('.combo-card');
+            if (card) {
+                const comboId = card.getAttribute('data-combo-id');
+                let comboObj = comboId ? state.combos.find(c => String(c.id) === String(comboId)) : null;
+                if (!comboObj) {
+                    const titleEl = card.querySelector('.combo-name');
+                    if (titleEl) {
+                        const comboName = titleEl.innerText.trim().toLowerCase();
+                        comboObj = state.combos.find(c => c.name.trim().toLowerCase() === comboName);
+                    }
+                }
+                if (comboObj) {
+                    openItemDetail('combo', comboObj, true);
+                }
             }
             return;
         }
@@ -1236,6 +1471,7 @@ ${itemsText}`;
             filterByCategory(cat);
         },
         resetFilters: function () {
+            if (state.activeDetail) closeItemDetail(true);
             state.activeCategory = 'all';
             state.searchQuery = '';
             const searchInput = document.getElementById('searchInput');
@@ -1244,6 +1480,89 @@ ${itemsText}`;
             if (clearBtn) clearBtn.style.display = 'none';
             renderCategories();
             renderFilteredProducts();
+        },
+        isDetailOpen: function () {
+            return !!state.activeDetail;
+        },
+        closeItemDetail: function () {
+            closeItemDetail(true);
+        },
+        openItemById: function (type, id) {
+            const item = type === 'combo'
+                ? state.combos.find(c => String(c.id) === String(id))
+                : state.products.find(p => String(p.id) === String(id));
+            if (item) openItemDetail(type, item, true);
+        },
+        stepDetailQty: function (delta) {
+            const input = document.getElementById('detailQtyInput');
+            if (!input) return;
+            const next = Math.max(1, Math.min(99, (parseInt(input.value, 10) || 1) + delta));
+            input.value = next;
+        },
+        addDetailItemToCart: function () {
+            if (!state.activeDetail) return;
+            const qtyInput = document.getElementById('detailQtyInput');
+            const qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+            const { type, id } = state.activeDetail;
+            if (type === 'combo') {
+                const c = state.combos.find(x => String(x.id) === String(id));
+                if (!c) return;
+                addToCart({
+                    id: c.id,
+                    type: 'combo',
+                    name: c.name,
+                    presentation: c.description || 'Promo Pack',
+                    price: c.price,
+                    qty: qty,
+                    image: c.image_path
+                });
+                openItemDetail('combo', c, false);
+            } else {
+                const p = state.products.find(x => String(x.id) === String(id));
+                if (!p) return;
+                addToCart({
+                    id: p.id,
+                    type: 'product',
+                    name: p.name,
+                    presentation: p.presentation,
+                    price: p.price_minorista,
+                    priceMinorista: p.price_minorista,
+                    priceMayorista: p.price_mayorista || p.price_minorista,
+                    qty: qty,
+                    image: p.image_path
+                });
+                openItemDetail('product', p, false);
+            }
+        },
+        copyDetailLink: async function () {
+            const url = window.location.href;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(url);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = url;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                }
+                showToast('¡Enlace copiado! Listo para compartir', 'fa-link');
+            } catch (e) {
+                showToast('Copiá el enlace desde la barra de direcciones', 'fa-link');
+            }
+        },
+        shareDetailWhatsapp: function () {
+            if (!state.activeDetail) return;
+            const { type, id } = state.activeDetail;
+            const item = type === 'combo'
+                ? state.combos.find(c => String(c.id) === String(id))
+                : state.products.find(p => String(p.id) === String(id));
+            if (!item) return;
+            const priceText = type === 'combo' ? formatCurrency(item.price) : formatCurrency(item.price_minorista);
+            const url = window.location.href;
+            const msg = `Mirá esta promo de Bebidas 25 de Mayo: *${item.name}* (${priceText}) 👇\n${url}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
         }
     };
 

@@ -192,6 +192,14 @@
         const wholesaleNotice = document.getElementById('wholesaleNoticeBox');
         const cartSavingsRow = document.getElementById('cartSavingsRow');
         const cartSavingsAmount = document.getElementById('cartSavingsAmount');
+        const cartSurchargeRow = document.getElementById('cartSurchargeRow');
+        const cartSurchargeLabel = document.getElementById('cartSurchargeLabel');
+        const cartSurchargeAmount = document.getElementById('cartSurchargeAmount');
+
+        // Recargo según medio de pago seleccionado (Débito +2%, Crédito +7%, Efectivo/Transferencia 0%)
+        const payInfo = getSelectedPaymentInfo();
+        const surchargeAmount = payInfo.surchargePct > 0 ? Math.round(totals.effectiveTotal * (payInfo.surchargePct / 100)) : 0;
+        const grandTotal = totals.effectiveTotal + surchargeAmount;
 
         // Barra de progreso mayorista en el carrito
         const progressText = document.getElementById('wholesaleProgressText');
@@ -209,7 +217,17 @@
         if (drawerCount) drawerCount.textContent = totals.totalItems;
         if (floatingCount) floatingCount.textContent = totals.totalItems;
         if (cartSubtotalEl) cartSubtotalEl.textContent = formatCurrency(totals.retailSubtotal);
-        if (cartTotalEl) cartTotalEl.textContent = formatCurrency(totals.effectiveTotal);
+        if (cartTotalEl) cartTotalEl.textContent = formatCurrency(grandTotal);
+
+        if (cartSurchargeRow && cartSurchargeAmount) {
+            if (surchargeAmount > 0 && totals.totalItems > 0) {
+                if (cartSurchargeLabel) cartSurchargeLabel.textContent = `Recargo ${payInfo.label} (+${payInfo.surchargePct}%)`;
+                cartSurchargeAmount.textContent = '+ ' + formatCurrency(surchargeAmount);
+                cartSurchargeRow.style.display = 'flex';
+            } else {
+                cartSurchargeRow.style.display = 'none';
+            }
+        }
 
         if (cartSavingsRow && cartSavingsAmount) {
             if (totals.qualifiesWholesale && totals.savings > 0) {
@@ -933,6 +951,204 @@ ${itemsText}`;
         window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(summaryText)}`;
     }
 
+    function getSelectedPaymentInfo() {
+        const paymentSel = document.getElementById('paymentMethod');
+        const val = paymentSel ? paymentSel.value : 'Efectivo';
+        if (val === 'Tarjeta de Débito') {
+            return { method: 'debito', label: 'Tarjeta de Débito', isOnline: true, surchargePct: 2 };
+        }
+        if (val === 'Tarjeta de Crédito') {
+            return { method: 'credito', label: 'Tarjeta de Crédito', isOnline: true, surchargePct: 7 };
+        }
+        return { method: val, label: val, isOnline: false, surchargePct: 0 };
+    }
+
+    function updatePaymentModeUI() {
+        const paymentSel = document.getElementById('paymentMethod');
+        const mpBtn = document.getElementById('payMercadoPagoBtn');
+        const mpHint = document.getElementById('mpPaymentHint');
+        const mpHintText = document.getElementById('mpPaymentHintText');
+        const waBtn = document.getElementById('sendWhatsappOrderBtn');
+        if (!paymentSel) return;
+
+        const info = getSelectedPaymentInfo();
+        if (mpBtn) {
+            mpBtn.style.display = info.isOnline ? 'inline-flex' : 'none';
+            const mpSpan = mpBtn.querySelector('span');
+            if (mpSpan) {
+                mpSpan.textContent = info.method === 'debito'
+                    ? 'Pagar con Débito en Mercado Pago (+2%)'
+                    : 'Pagar con Crédito en Mercado Pago (+7%)';
+            }
+        }
+        if (mpHint) {
+            mpHint.style.display = info.isOnline ? 'flex' : 'none';
+            if (mpHintText && info.isOnline) {
+                mpHintText.innerHTML = info.method === 'debito'
+                    ? 'Pagás con <strong>Tarjeta de Débito</strong> (o saldo MP) en Mercado Pago. Incluye <strong>+2%</strong> de recargo.'
+                    : 'Pagás con <strong>Tarjeta de Crédito</strong> en Mercado Pago. Incluye <strong>+7%</strong> de recargo.';
+            }
+        }
+        if (waBtn) {
+            const span = waBtn.querySelector('span');
+            if (span) {
+                span.textContent = info.isOnline
+                    ? 'O consultar / pedir por WhatsApp'
+                    : 'Confirmar Pedido por WhatsApp';
+            }
+        }
+        updateCartUI();
+    }
+
+    async function payWithMercadoPago() {
+        const customer = validateCheckout();
+        if (!customer) return;
+        const payInfo = getSelectedPaymentInfo();
+
+        const mpBtn = document.getElementById('payMercadoPagoBtn');
+        const origHtml = mpBtn ? mpBtn.innerHTML : '';
+        if (mpBtn) {
+            mpBtn.disabled = true;
+            mpBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Conectando con Mercado Pago...</span>';
+        }
+
+        try {
+            const itemsPayload = state.cart.map(it => ({
+                id: it.id,
+                type: it.type || 'product',
+                qty: parseInt(it.qty || 1, 10)
+            }));
+
+            const res = await fetch('/api/crear-pago', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: itemsPayload,
+                    customer: customer,
+                    payment_method: payInfo.method
+                })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.init_point) {
+                const msg = data.error || 'No se pudo iniciar el pago online. Podés finalizar tu pedido por WhatsApp.';
+                showToast(msg, 'fa-triangle-exclamation');
+                alert(msg);
+                return;
+            }
+
+            // Guardar el resumen del pedido para confirmarlo por WhatsApp al volver de Mercado Pago
+            const summaryText = buildOrderSummaryText(customer);
+            try {
+                localStorage.setItem('b25_pending_mp_order', JSON.stringify({
+                    order_ref: data.order_ref,
+                    total: data.total,
+                    summaryText: summaryText,
+                    customer: customer,
+                    createdAt: Date.now()
+                }));
+            } catch (e) {}
+
+            window.location.href = data.init_point;
+        } catch (err) {
+            console.error('Error iniciando pago Mercado Pago:', err);
+            showToast('Error de conexión con Mercado Pago. Probá por WhatsApp.', 'fa-triangle-exclamation');
+            alert('No pudimos conectar con Mercado Pago en este momento. Podés enviar tu pedido por WhatsApp sin problema.');
+        } finally {
+            if (mpBtn) {
+                mpBtn.disabled = false;
+                mpBtn.innerHTML = origHtml;
+            }
+        }
+    }
+
+    function checkMercadoPagoReturn() {
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('pago');
+        if (!status) return;
+
+        const orderRef = params.get('orden') || params.get('external_reference') || '';
+        const paymentId = params.get('payment_id') || params.get('collection_id') || '';
+
+        let pendingOrder = null;
+        try {
+            const raw = localStorage.getItem('b25_pending_mp_order');
+            if (raw) pendingOrder = JSON.parse(raw);
+        } catch (e) {}
+
+        const modal = document.getElementById('mpResultModal');
+        const iconEl = document.getElementById('mpResultIcon');
+        const titleEl = document.getElementById('mpResultTitle');
+        const msgEl = document.getElementById('mpResultMessage');
+        const metaEl = document.getElementById('mpResultMeta');
+        const waBtn = document.getElementById('mpConfirmWhatsappBtn');
+
+        if (!modal) return;
+
+        if (status === 'aprobado') {
+            if (iconEl) {
+                iconEl.className = 'mp-result-icon success';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            }
+            if (titleEl) titleEl.textContent = '¡Pago Aprobado!';
+            if (msgEl) msgEl.textContent = 'Recibimos tu pago en Mercado Pago. Tocá el botón de abajo para avisarnos por WhatsApp y coordinar la entrega al instante.';
+            // Vaciar carrito tras pago confirmado
+            state.cart = [];
+            saveCartToStorage();
+        } else if (status === 'pendiente') {
+            if (iconEl) {
+                iconEl.className = 'mp-result-icon pending';
+                iconEl.innerHTML = '<i class="fa-solid fa-clock"></i>';
+            }
+            if (titleEl) titleEl.textContent = 'Pago Pendiente';
+            if (msgEl) msgEl.textContent = 'Tu pago está en proceso de acreditación en Mercado Pago. Escribinos por WhatsApp para reservar tu pedido.';
+        } else {
+            if (iconEl) {
+                iconEl.className = 'mp-result-icon failure';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+            }
+            if (titleEl) titleEl.textContent = 'Pago No Completado';
+            if (msgEl) msgEl.textContent = 'El pago fue cancelado o rechazado. Tu carrito sigue guardado: podés volver a intentar o pedir en efectivo por WhatsApp.';
+        }
+
+        if (metaEl) {
+            const parts = [];
+            if (orderRef) parts.push(`Orden: ${orderRef}`);
+            if (paymentId) parts.push(`Operación MP: #${paymentId}`);
+            if (pendingOrder && pendingOrder.total) parts.push(`Total: ${formatCurrency(pendingOrder.total)}`);
+            metaEl.textContent = parts.join(' · ') || 'Bebidas 25 de Mayo · Lanús Oeste';
+        }
+
+        if (waBtn) {
+            waBtn.onclick = () => {
+                const phone = state.config.whatsapp_phone || '5491176265350';
+                const statusLabel = status === 'aprobado'
+                    ? '✅ *PAGO APROBADO POR MERCADO PAGO*'
+                    : (status === 'pendiente' ? '⏳ *PAGO PENDIENTE EN MERCADO PAGO*' : '💬 *CONSULTA SOBRE PEDIDO WEB*');
+                const header = `${statusLabel}\n${orderRef ? `🔖 *Orden:* ${orderRef}\n` : ''}${paymentId ? `🧾 *Operación MP:* #${paymentId}\n` : ''}\n`;
+                const baseMsg = (pendingOrder && pendingOrder.summaryText)
+                    ? pendingOrder.summaryText
+                    : 'Hola Bebidas 25 de Mayo, acabo de realizar un pago en la tienda web.';
+                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(header + baseMsg)}`, '_blank', 'noopener');
+            };
+        }
+
+        modal.style.display = 'flex';
+        if (status === 'aprobado') {
+            try { localStorage.removeItem('b25_pending_mp_order'); } catch (e) {}
+        }
+
+        // Limpiar parámetros de la URL sin recargar
+        try {
+            window.history.replaceState({}, '', window.location.pathname);
+        } catch (e) {}
+    }
+
+    function closeMpResultModal() {
+        const modal = document.getElementById('mpResultModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     // ----------------- EVENT LISTENERS Y SCROLL FAB -----------------
     function setupEventListeners() {
         const openCartBtn = document.getElementById('openCartBtn');
@@ -991,10 +1207,17 @@ ${itemsText}`;
             });
         });
 
+        const btnMp = document.getElementById('payMercadoPagoBtn');
         const btnWhatsapp = document.getElementById('sendWhatsappOrderBtn');
         const btnEmail = document.getElementById('sendEmailOrderBtn');
+        const paymentSel = document.getElementById('paymentMethod');
+        if (btnMp) btnMp.addEventListener('click', payWithMercadoPago);
         if (btnWhatsapp) btnWhatsapp.addEventListener('click', sendWhatsappOrder);
         if (btnEmail) btnEmail.addEventListener('click', sendEmailOrder);
+        if (paymentSel) {
+            paymentSel.addEventListener('change', updatePaymentModeUI);
+            updatePaymentModeUI();
+        }
 
         // Mostrar/ocultar botones rápidos flotantes al bajar por el catálogo
         const quickFabGroup = document.getElementById('quickFabGroup');
@@ -1051,6 +1274,8 @@ ${itemsText}`;
 
             // Si el usuario ingresó por URL directa (/producto/<slug> o /combo/<slug>), abrir su vista
             syncRouteFromLocation();
+            // Si vuelve de Mercado Pago (?pago=aprobado|pendiente|rechazado), mostrar confirmación
+            checkMercadoPagoReturn();
 
         } catch (err) {
             console.error('Error cargando catálogo público:', err);
@@ -1563,6 +1788,9 @@ ${itemsText}`;
             const url = window.location.href;
             const msg = `Mirá esta promo de Bebidas 25 de Mayo: *${item.name}* (${priceText}) 👇\n${url}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+        },
+        closeMpResultModal: function () {
+            closeMpResultModal();
         }
     };
 

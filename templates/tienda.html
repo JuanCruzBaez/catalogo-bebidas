@@ -522,6 +522,10 @@
                     <span>Subtotal</span>
                     <span id="cartSubtotal">$ 0</span>
                 </div>
+                <div class="summary-row" id="cartSurchargeRow" style="display: none; color: #b45309; font-weight: 700;">
+                    <span id="cartSurchargeLabel">Recargo tarjeta</span>
+                    <span id="cartSurchargeAmount">+$ 0</span>
+                </div>
                 <div class="summary-row total-row">
                     <span>Total Final</span>
                     <span id="cartTotal" class="total-amount">$ 0</span>
@@ -564,14 +568,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="paymentMethod">Forma de Pago Prevista</label>
+                    <label for="paymentMethod">¿Cómo querés pagar? *</label>
                     <select id="paymentMethod" class="select-payment">
-                        <option value="Efectivo">Efectivo al recibir / retirar</option>
-                        <option value="Transferencia">Transferencia Bancaria / Alias MP</option>
-                        <option value="QR Mercado Pago">QR Mercado Pago (+1%)</option>
-                        <option value="Tarjeta de Débito">Tarjeta de Débito (+2%)</option>
-                        <option value="Tarjeta de Crédito">Tarjeta de Crédito (+7%)</option>
+                        <option value="Tarjeta de Débito">💳 Tarjeta de Débito Online (+2%)</option>
+                        <option value="Tarjeta de Crédito">💳 Tarjeta de Crédito Online (+7%)</option>
+                        <option value="Efectivo">💵 Efectivo al recibir / retirar (sin recargo)</option>
+                        <option value="Transferencia">🏦 Transferencia Bancaria / Cuenta DNI (sin recargo)</option>
                     </select>
+                    <div id="mpPaymentHint" class="mp-payment-hint">
+                        <i class="fa-solid fa-lock"></i>
+                        <span id="mpPaymentHintText">Pagás de forma segura en <strong>Mercado Pago</strong>.</span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -581,12 +588,17 @@
 
                 <!-- Botones de Checkout -->
                 <div class="checkout-actions">
-                    <button id="sendWhatsappOrderBtn" class="btn btn-whatsapp-checkout">
+                    <button id="payMercadoPagoBtn" class="btn btn-mp-checkout" type="button">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span>Pagar Online con Mercado Pago</span>
+                    </button>
+
+                    <button id="sendWhatsappOrderBtn" class="btn btn-whatsapp-checkout" type="button">
                         <i class="fa-brands fa-whatsapp"></i>
                         <span>Enviar Pedido por WhatsApp</span>
                     </button>
 
-                    <button id="sendEmailOrderBtn" class="btn btn-email-checkout">
+                    <button id="sendEmailOrderBtn" class="btn btn-email-checkout" type="button">
                         <i class="fa-solid fa-envelope"></i>
                         <span>Enviar Pedido por Email</span>
                     </button>
@@ -708,6 +720,30 @@
                         <i class="fa-solid fa-cart-plus"></i> Agregar al Pedido
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Resultado de Pago Mercado Pago -->
+    <div id="mpResultModal" class="mp-result-modal" style="display: none;" onclick="if(event.target === this) tiendaApp.closeMpResultModal()">
+        <div class="mp-result-card">
+            <button type="button" class="mp-result-close" onclick="tiendaApp.closeMpResultModal()" aria-label="Cerrar">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="mpResultIcon" class="mp-result-icon success">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 id="mpResultTitle" class="mp-result-title">¡Pago Aprobado!</h3>
+            <p id="mpResultMessage" class="mp-result-message"></p>
+            <div id="mpResultMeta" class="mp-result-meta"></div>
+            <div class="mp-result-actions">
+                <button type="button" id="mpConfirmWhatsappBtn" class="btn btn-whatsapp-checkout">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    <span>Confirmar entrega por WhatsApp</span>
+                </button>
+                <button type="button" class="btn-mp-close-secondary" onclick="tiendaApp.closeMpResultModal()">
+                    Seguir viendo la tienda
+                </button>
             </div>
         </div>
     </div>

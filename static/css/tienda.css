@@ -3314,3 +3314,145 @@ input:focus, select:focus, textarea:focus {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+
+/* =====================================================================
+   CHECKOUT ONLINE MERCADO PAGO PRO + MODAL CONFIRMACIÓN
+   ===================================================================== */
+.mp-payment-hint {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #0369a1;
+    font-size: 12px;
+    line-height: 1.35;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.mp-payment-hint i {
+    margin-top: 2px;
+    color: #009ee3;
+    flex-shrink: 0;
+}
+
+.btn-mp-checkout {
+    width: 100%;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #009ee3 0%, #007eb5 100%);
+    color: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14.5px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 6px 18px rgba(0, 158, 227, 0.32);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-mp-checkout:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+}
+
+.btn-mp-checkout:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.mp-result-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(9, 9, 11, 0.72);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.mp-result-card {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    border: 2px solid #f59e0b;
+    border-radius: 24px;
+    padding: 32px 26px 26px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.mp-result-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    cursor: pointer;
+}
+
+.mp-result-icon {
+    font-size: 56px;
+    margin-bottom: 12px;
+}
+.mp-result-icon.success { color: #16a34a; }
+.mp-result-icon.pending { color: #f59e0b; }
+.mp-result-icon.failure { color: #dc2626; }
+
+.mp-result-title {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 38px;
+    letter-spacing: 0.03em;
+    color: #111827;
+    margin: 0 0 8px;
+}
+
+.mp-result-message {
+    font-size: 14px;
+    color: #4b5563;
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+.mp-result-meta {
+    background: #fdfbf7;
+    border: 1px solid #e5dccf;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 18px;
+}
+
+.mp-result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-mp-close-secondary {
+    background: transparent;
+    border: 1.5px solid #d1d5db;
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    cursor: pointer;
+}

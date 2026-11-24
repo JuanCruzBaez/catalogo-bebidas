@@ -1,4 +1,6 @@
 /tienda /index.html 200
+/producto/* /index.html 200
+/combo/* /index.html 200
 /api/public/info /api/public/info.json 200
 /api/public/combos /api/public/combos.json 200
 /api/public/categories /api/public/categories.json 200

@@ -286,6 +286,75 @@
                 </div>
             </section>
 
+            <!-- CARGADOR AUTOMÁTICO DE CATÁLOGO EN WHATSAPP BUSINESS -->
+            <section class="bg-neutral-900/90 border border-amber-500/35 rounded-2xl p-5 shadow-xl space-y-3.5">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <span class="text-[11px] font-black uppercase tracking-wider text-amber-400">Catálogo Automático WA Business</span>
+                        <h2 class="text-base font-extrabold text-white">Subir Productos y Combos al Catálogo</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Carga foto, precio, descripción y link web directo desde tu stock en WhatsApp Web Business.</p>
+                    </div>
+                    <span class="text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap"
+                        x-text="catalogSummary.synced_count + ' subidos'"></span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Qué querés subir</label>
+                        <select x-model="catalogScope"
+                            class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-500">
+                            <option value="combos" x-text="'🔥 Todos los Combos (' + catalogSummary.combos_pending + ' pend.)'"></option>
+                            <option value="sin_alcohol" x-text="'🥤 Solo SIN Alcohol (' + catalogSummary.sin_alcohol_pending + ' pend.)'"></option>
+                            <option value="all" x-text="'📦 Catálogo Completo (' + catalogSummary.all_pending + ' pend.)'"></option>
+                            <option value="category">🎯 Una categoría puntual...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Cantidad por tanda</label>
+                        <select x-model.number="catalogLimit"
+                            class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-500">
+                            <option :value="10">10 artículos (prueba rápida)</option>
+                            <option :value="25">25 artículos (tanda segura)</option>
+                            <option :value="50">50 artículos</option>
+                            <option :value="0">Todos los pendientes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div x-show="catalogScope === 'category'" x-cloak>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Elegí la categoría</label>
+                    <select x-model="catalogCategoryId"
+                        class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-500">
+                        <template x-for="cat in catalogSummary.categories" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.name + ' (' + cat.product_count + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="catalogSkipSynced" class="rounded bg-neutral-950 border-neutral-700 text-amber-500">
+                        <span>Saltar artículos ya subidos</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="catalogIncludeLink" class="rounded bg-neutral-950 border-neutral-700 text-amber-500">
+                        <span>Incluir link web de cada producto</span>
+                    </label>
+                </div>
+
+                <div class="flex gap-2">
+                    <button @click="startCatalogUpload()" :disabled="isRunning || waState !== 'logged_in'"
+                        class="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 text-black font-black text-xs sm:text-sm py-3 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition">
+                        <span>📦 CREAR PRODUCTOS EN CATÁLOGO WA</span>
+                    </button>
+                    <button @click="resetCatalogHistory()" :disabled="isRunning" title="Resetear registro de artículos subidos"
+                        class="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-xs font-bold text-slate-300 transition">
+                        🔄
+                    </button>
+                </div>
+            </section>
+
             <!-- REGISTRO DE ACTIVIDAD EN VIVO -->
             <section class="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 shadow-xl">
                 <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">Registro de envíos en
@@ -589,13 +658,79 @@
                 showManualModal: false,
                 manualText: '',
 
+                catalogSummary: {
+                    combos_pending: 0,
+                    sin_alcohol_pending: 0,
+                    all_pending: 0,
+                    synced_count: 0,
+                    categories: []
+                },
+                catalogScope: 'combos',
+                catalogCategoryId: '',
+                catalogLimit: 25,
+                catalogSkipSynced: true,
+                catalogIncludeLink: true,
+
                 init() {
                     this.fetchTemplates();
                     this.fetchContacts();
                     this.fetchPromoImages();
+                    this.fetchCatalogSummary();
                     this.pollStatus();
                     setInterval(() => this.pollStatus(), 2000);
                     setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+                },
+
+                async fetchCatalogSummary() {
+                    try {
+                        const res = await fetch('/api/wa/catalog/summary');
+                        const data = await res.json();
+                        if (data && data.categories) {
+                            this.catalogSummary = data;
+                            if (!this.catalogCategoryId && data.categories.length > 0) {
+                                this.catalogCategoryId = data.categories[0].id;
+                            }
+                        }
+                    } catch (e) {}
+                },
+
+                async startCatalogUpload() {
+                    if (this.waState !== 'logged_in') {
+                        alert('Primero conectá WhatsApp Web Business arriba en el Paso 1.');
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/wa/catalog/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scope: this.catalogScope,
+                                category_id: this.catalogScope === 'category' ? this.catalogCategoryId : null,
+                                skip_synced: this.catalogSkipSynced,
+                                include_link: this.catalogIncludeLink,
+                                min_delay: 7,
+                                max_delay: 12,
+                                limit: this.catalogLimit
+                            })
+                        });
+                        const data = await res.json();
+                        if (!data.success) {
+                            alert(data.message || 'No se pudo iniciar la carga del catálogo.');
+                        } else {
+                            this.pollStatus();
+                        }
+                    } catch (e) {
+                        alert('Error de conexión al iniciar la carga del catálogo.');
+                    }
+                },
+
+                async resetCatalogHistory() {
+                    if (!confirm('¿Querés limpiar el registro de artículos ya subidos para poder volver a cargarlos?')) return;
+                    try {
+                        const res = await fetch('/api/wa/catalog/reset-history', { method: 'POST' });
+                        const data = await res.json();
+                        if (data.summary) this.catalogSummary = data.summary;
+                    } catch (e) {}
                 },
 
                 waStateLabel() {

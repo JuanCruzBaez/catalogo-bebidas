@@ -915,7 +915,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .combo-image-box {
-    background: radial-gradient(circle at 50% 50%, #241c15 0%, #0f172a 85%);
+    background: radial-gradient(circle at 50% 48%, #ffffff 42%, #fdfbf7 78%, #f4eee2 100%);
+    border-bottom: 1.5px solid #efe6d5;
     height: 220px;
     display: flex;
     align-items: center;
@@ -929,7 +930,7 @@ input:focus, select:focus, textarea:focus {
     max-height: 100%;
     max-width: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65));
+    filter: drop-shadow(0 8px 14px rgba(78, 59, 29, 0.16));
     transition: transform 0.25s;
 }
 
@@ -2983,7 +2984,7 @@ input:focus, select:focus, textarea:focus {
 
 .detail-image-stage {
     position: relative;
-    background: radial-gradient(circle at 50% 50%, #27272a 0%, #18181b 75%, #09090b 100%);
+    background: radial-gradient(circle at 50% 48%, #ffffff 45%, #fdfbf7 80%, #f4eee2 100%);
     border: 2px solid #f59e0b;
     border-radius: 20px;
     padding: 28px;
@@ -2998,7 +2999,7 @@ input:focus, select:focus, textarea:focus {
     max-width: 100%;
     max-height: 340px;
     object-fit: contain;
-    filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.55));
+    filter: drop-shadow(0 12px 20px rgba(78, 59, 29, 0.18));
 }
 
 .detail-stage-badge {
@@ -3269,7 +3270,8 @@ input:focus, select:focus, textarea:focus {
 
 .related-mini-img {
     height: 135px;
-    background: #18181b;
+    background: radial-gradient(circle at 50% 50%, #ffffff 48%, #fdfbf7 85%, #f4eee2 100%);
+    border: 1px solid #efe6d5;
     border-radius: 12px;
     display: flex;
     align-items: center;

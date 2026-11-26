@@ -19,6 +19,7 @@
         categories: [],
         cart: [],
         activeCategory: 'all',
+        activeComboTab: 'all',
         priceMode: 'minorista', // 'minorista' | 'mayorista'
         searchQuery: '',
         sortBy: 'featured',
@@ -486,18 +487,83 @@
         }
     }
 
-    // ----------------- RENDERIZADO DE COMBOS -----------------
+    // ----------------- CATEGORIZACIÓN Y RENDERIZADO DE COMBOS -----------------
+    const COMBO_TABS = [
+        { id: 'all', label: '🔥 Todos' },
+        { id: 'cervezas', label: '🍺 Packs Cervezas' },
+        { id: 'vodkas', label: '⚡ Vodkas y Tragos' },
+        { id: 'gin', label: '🍸 Gin Tonic' },
+        { id: 'whiskies', label: '🥃 Whiskies y Licores' },
+        { id: 'aperitivos', label: '🍹 Fernet, Ron y Aperitivos' },
+        { id: 'sidras_vinos', label: '🥂 Sidras, Vinos y Espumantes' },
+        { id: 'sin_alcohol', label: '🥤 Packs Sin Alcohol' }
+    ];
+
+    function getComboTabId(c) {
+        const txt = `${c.name || ''} ${c.description || ''}`.toLowerCase();
+        if (/\bgin\b|beefeater|aconcagua|gordon|heredero/.test(txt)) return 'gin';
+        if (/whisk|jack daniel|johnnie walker|\bjw\b|jameson|jaggermeister|jagermeister/.test(txt)) return 'whiskies';
+        if (/vodka|skyy|smirnoff|absolut|dr\.?\s*lemon/.test(txt)) return 'vodkas';
+        if (/fernet|gancia|cinzano|campari|aperol|\bron\b|bacardi|malibu|havana/.test(txt)) return 'aperitivos';
+        if (/sidra|anana fizz|ananá fizz|champagne|espumante|federico de alvear|vino|balbo|col[oó]n/.test(txt)) return 'sidras_vinos';
+        if (/cerveza|corona|heineken|stella|quilmes|imperial|schneider|warsteiner|miller|michelob|goyeneche|patagonia/.test(txt)) return 'cervezas';
+        return 'sin_alcohol';
+    }
+
+    function renderComboTabs() {
+        const bar = document.getElementById('combosTabsBar');
+        if (!bar) return;
+
+        const counts = { all: state.combos.length };
+        state.combos.forEach(c => {
+            const tid = getComboTabId(c);
+            counts[tid] = (counts[tid] || 0) + 1;
+        });
+
+        let html = '';
+        COMBO_TABS.forEach(tab => {
+            const cnt = counts[tab.id] || 0;
+            if (tab.id !== 'all' && cnt === 0) return;
+            const isActive = state.activeComboTab === tab.id;
+            html += `
+                <button type="button"
+                    class="combo-tab-btn ${isActive ? 'active' : ''}"
+                    role="tab"
+                    aria-selected="${isActive ? 'true' : 'false'}"
+                    onclick="tiendaApp.setComboTab('${tab.id}')">
+                    <span>${tab.label}</span>
+                    <span class="combo-tab-count">${cnt}</span>
+                </button>
+            `;
+        });
+        bar.innerHTML = html;
+    }
+
+    function setComboTab(tabId) {
+        state.activeComboTab = tabId || 'all';
+        renderComboTabs();
+        renderCombos();
+        const grid = document.getElementById('combosGrid');
+        if (grid) grid.scrollLeft = 0;
+    }
+
     function renderCombos() {
         const grid = document.getElementById('combosGrid');
         if (!grid) return;
 
-        if (state.combos.length === 0) {
-            grid.innerHTML = '<p class="empty-state">No hay combos disponibles en este momento.</p>';
+        renderComboTabs();
+
+        const visibleCombos = state.activeComboTab === 'all'
+            ? state.combos
+            : state.combos.filter(c => getComboTabId(c) === state.activeComboTab);
+
+        if (visibleCombos.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No hay combos disponibles en esta categoría.</p>';
             return;
         }
 
         let html = '';
-        state.combos.forEach(c => {
+        visibleCombos.forEach(c => {
             const imgPath = getAbsoluteImg(c.image_path);
             const itemsList = (c.items || []).map(it => `<li><i class="fa-solid fa-check"></i> ${it.qty}x ${it.name}</li>`).join('');
             const inCartQty = getCartQtyForItem(c.id, 'combo');
@@ -1694,6 +1760,9 @@ ${itemsText}`;
         },
         filterByCategory: function (cat) {
             filterByCategory(cat);
+        },
+        setComboTab: function (tabId) {
+            setComboTab(tabId);
         },
         resetFilters: function () {
             if (state.activeDetail) closeItemDetail(true);

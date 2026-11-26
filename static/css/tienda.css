@@ -3458,3 +3458,87 @@ input:focus, select:focus, textarea:focus {
     color: #374151;
     cursor: pointer;
 }
+
+
+/* =====================================================================
+   PESTAÑAS DE CATEGORÍAS DE COMBOS
+   ===================================================================== */
+.combos-tabs-wrapper {
+    margin: 0 0 20px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+}
+
+.combos-tabs-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.combos-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.combo-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 9999px;
+    border: 1.5px solid #e5dccf;
+    background: #ffffff;
+    color: #1f2937;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    box-shadow: 0 2px 6px rgba(78, 59, 29, 0.05);
+}
+
+.combo-tab-btn:hover {
+    border-color: #f59e0b;
+    color: #111827;
+    transform: translateY(-1px);
+}
+
+.combo-tab-btn.active {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border-color: #f59e0b;
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.28);
+}
+
+.combo-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 800;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.combo-tab-btn.active .combo-tab-count {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fef08a;
+}
+
+@media (max-width: 768px) {
+    .combos-tabs-bar {
+        flex-wrap: nowrap;
+        width: max-content;
+    }
+    .combo-tab-btn {
+        padding: 8px 13px;
+        font-size: 12px;
+    }
+}
